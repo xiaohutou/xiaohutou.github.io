@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2"/>
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=6.2.0" rel="stylesheet" type="text/css" />
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.2.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.2.0" color="#222">
+
+
+
+
+
+
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.2.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="原文 OVS-on-Hyper-V Design 声明：  本译文并未取得原作者授权，如有侵权行为，请发邮件到13581561959@163.com。我将立即删除。 翻译中，意译的地方较多。如有错误，或不准确的地方，欢迎邮件讨论，谢谢。  本文将详细说明Open vSwitch是如何在Microsoft的hyper-v平台上开发的。这些信息将帮助您理解整体的设计。Note：用户空间程序也已经被到了">
+<meta name="keywords" content="openvswitch,hyper-v">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OVS在Hyper-V平台上的设计原则">
+<meta property="og:url" content="http://yoursite.com/2018/04/17/ovs-on-hyperv-design/index.html">
+<meta property="og:site_name" content="小虎头 加油">
+<meta property="og:description" content="原文 OVS-on-Hyper-V Design 声明：  本译文并未取得原作者授权，如有侵权行为，请发邮件到13581561959@163.com。我将立即删除。 翻译中，意译的地方较多。如有错误，或不准确的地方，欢迎邮件讨论，谢谢。  本文将详细说明Open vSwitch是如何在Microsoft的hyper-v平台上开发的。这些信息将帮助您理解整体的设计。Note：用户空间程序也已经被到了">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://yoursite.com/2018/04/17/ovs-on-hyperv-design/OVS-windows.png">
+<meta property="og:updated_time" content="2018-04-22T15:13:36.286Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="OVS在Hyper-V平台上的设计原则">
+<meta name="twitter:description" content="原文 OVS-on-Hyper-V Design 声明：  本译文并未取得原作者授权，如有侵权行为，请发邮件到13581561959@163.com。我将立即删除。 翻译中，意译的地方较多。如有错误，或不准确的地方，欢迎邮件讨论，谢谢。  本文将详细说明Open vSwitch是如何在Microsoft的hyper-v平台上开发的。这些信息将帮助您理解整体的设计。Note：用户空间程序也已经被到了">
+<meta name="twitter:image" content="http://yoursite.com/2018/04/17/ovs-on-hyperv-design/OVS-windows.png">
+
+
+
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2018/04/17/ovs-on-hyperv-design/"/>
+
+
+
+<script type="text/javascript" id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>OVS在Hyper-V平台上的设计原则 | 小虎头 加油</title>
+  
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style type="text/css">
+    .use-motion .motion-element,
+    .use-motion .brand,
+    .use-motion .menu-item,
+    .sidebar-inner,
+    .use-motion .post-block,
+    .use-motion .pagination,
+    .use-motion .comments,
+    .use-motion .post-header,
+    .use-motion .post-body,
+    .use-motion .collection-title { opacity: initial; }
+
+    .use-motion .logo,
+    .use-motion .site-title,
+    .use-motion .site-subtitle {
+      opacity: initial;
+      top: initial;
+    }
+
+    .use-motion {
+      .logo-line-before i { left: initial; }
+      .logo-line-after i { right: initial; }
+    }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">小虎头 加油</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle">老兵不死，之渐凋零</p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+    <a href="/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-home"></i> <br />首页</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+    <a href="/archives/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />归档</a>
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/04/17/ovs-on-hyperv-design/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="xiaohutou">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="小虎头 加油">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">OVS在Hyper-V平台上的设计原则
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2018-04-17 22:20:37" itemprop="dateCreated datePublished" datetime="2018-04-17T22:20:37+09:00">2018-04-17</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2018-04-23 00:13:36" itemprop="dateModified" datetime="2018-04-23T00:13:36+09:00">2018-04-23</time>
+              
+            
+          </span>
+
+          
+
+          
+            
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+                <a href="/2018/04/17/ovs-on-hyperv-design/#comments" itemprop="discussionUrl">
+                  <span class="post-meta-item-text">评论数：</span> <span class="post-comments-count gitment-comments-count" data-xid="/2018/04/17/ovs-on-hyperv-design/" itemprop="commentsCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <a href="http://docs.openvswitch.org/en/latest/topics/windows/" target="_blank" rel="noopener">原文 OVS-on-Hyper-V Design</a>
+<div class="note primary"><p>声明：</p>
+<ol>
+<li>本译文并未取得原作者授权，如有侵权行为，请发邮件到<a href="mailto:13581561959@163.com" target="_blank" rel="noopener">13581561959@163.com</a>。我将立即删除。</li>
+<li>翻译中，意译的地方较多。如有错误，或不准确的地方，欢迎邮件讨论，谢谢。</li>
+</ol></div>
+<p>本文将详细说明Open vSwitch是如何在Microsoft的hyper-v平台上开发的。这些信息将帮助您理解整体的设计。<br><blockquote><p>Note：<br>用户空间程序也已经被到了Hyper-V平台上并其提交到了openvswitch的代码库中，这是另一个小组完成的。本文着重阐述内核模块的移植，但是会涉及到用户空间程序。</p>
+</blockquote></p>
+<h1 id="背景（Background-Info）"><a href="#背景（Background-Info）" class="headerlink" title="背景（Background Info）"></a>背景（Background Info）</h1><p>微软在其虚拟化平台 - Hyper-V 上实现了一个可扩展的虚拟交换机。因此，第三方厂商可以在虚拟交换机上开发新的功能。该扩展是通过将NDIS驱动绑定到可扩展虚拟交换机的驱动栈实现的。可扩展的功能包括监视、修改和转发数据报到Hyper-V交换机的端口。总的来说，可扩展的功能包括以下几种类型：</p>
+<ul>
+<li>捕获式扩展: 监视数据报</li>
+<li>过滤性扩展: 监视、修改数据报</li>
+<li>转发式扩展: 监视、修改、转发数据报</li>
+</ul>
+<p>显而易见，在Hyper-V平台上，OVS的内核模块（datapath）是一个实现了转发功能的NDIS驱动。</p>
+<p>在Hyper-V平台上，虚拟机被称为子工作区（Child Partition）。每一个虚拟网络接口或物理网卡通过一个端口（port）连接到虚拟交换机上。上行路径（ingress path）是指数据报从端口被发送出去；下行路径是指数据报在一个端口上被接收。NDIS驱动框架采用了分层接口（a layered interface）的设计模式。在这个分层接口的设计模式中，上行路径中，高层的接口调用其下一层的接口。在下行路径中，则与之相反。另外，控制操作是通过对象标识（OID，object identifier）接口完成的，例如，添加一个端口（port）。这些控制操作的工作流程与数据报的操作一样，高层接口调用底层接口。<a href="https://msdn.microsoft.com/windows/hardware/drivers/network/hyper-v-extensible-switch-components" target="_blank" rel="noopener">Hyper-V Extensible Switch Components</a>中有这方面的详尽的示例图片。</p>
+<p>Windows过滤平台（Windows Filtering Platform，WFP）提供了用于过滤数据报的APIs和服务。OVS使用WFP处理一些不能直接处理的数据报。后面将就该问题详细说明。</p>
+<p>Hyper-V提供了一组用户获取主机的网络配置信息的接口，被称为IP Helpler。OVS使用这些接口获得必要的网络配置信息。<br><a id="more"></a></p>
+<h1 id="设计"><a href="#设计" class="headerlink" title="设计"></a>设计</h1><img src="/2018/04/17/ovs-on-hyperv-design/OVS-windows.png" title="图1. Various blocks of the OVS Windows implementation">
+<p>上图中，包括了Windows平台上的OVS的各个模块（datapath、ovs-vswitchd和用户空间工具），NDIS驱动栈的相关模块，和虚拟机，以及它们之间的交互。从图中，可以看出一个数据包如何从一个虚拟接口被传输到另一个虚拟接口或物理网卡的。在本节稍后的部分，会从更高的层面阐述数据流。</p>
+<p>通过该图，读者对于OVS的用户空间和内核组件有一个整体的认识，并且了解到它们是如何交互的。</p>
+<p>在Hyper-V平台上，OVS的内核模块（datapath0）是一个转发扩展NDIS驱动，主要实现了下面的子模块/功能。关于它们的详细说明将在下面的部分说明。</p>
+<ul>
+<li>与NDIS驱动栈交互（Interfacing with the NDIS stack）</li>
+<li>Netlink消息解析（Netlink message parser）</li>
+<li>Netlink套接字（Netlink sockets）</li>
+<li>虚拟交换机管理（Switch/Datapath management）</li>
+<li>与用户空间程序交互完成特定的功能（Interfacing with userspace portion of the OVS solution to implement the necessary functionality that userspace needs）</li>
+<li>端口管理（Port management）</li>
+<li>数据报转发（Flowtable/Actions/packet forwarding）</li>
+<li>数据通信隧道（Tunneling）</li>
+<li>事件通知机制（Event notifications）</li>
+</ul>
+<p>在Linux平台上，OVS的数据面的功能是在一个内核模块中实现的。然而，它不能被直接移植到Hyper-V平台，因为这两个平台从实现的功能上看市相似的，但在体系结构上市完全不同的。这些不同包括：</p>
+<ul>
+<li>在NDIS驱动栈中，NDIS的回调函数提供接收和发送数据报的功能，OIDs消息被用于处理事件，如在虚拟交换机上添加一个新的端口。</li>
+<li>用户空间与内核模块交互的接口</li>
+<li>事件通知的机制完全不同</li>
+<li>DPIF和内核通信的接口没有必要按照Linux平台的方式实现。即便如此，考虑到带的可读性和维护，Hyper-V的OVS内核模块最好能够提供与Linux平台相似的接口。</li>
+<li>直接使用Linux内核代码设计到的授权许可</li>
+</ul>
+<p>由于以上的这些差别，在Hyper-V平台上，从零开始开发OVS的datapath，而不是移植Linux内核模块的代码，是一个自然而然的决定。重新开发将集中完成下列的目标：</p>
+<ul>
+<li>根据OVS的用户空间程序（例如ovs-vswitchd）移植的需求，尽可能少地改变其工作流程。</li>
+<li>与Hyper-V的可扩展交换机的工作流程更好地融合</li>
+</ul>
+<p>OVS的用户空间程序基本上是符合POSIX标准的代码，尽量少地使用Linux平台特有的功能。绝大部分的用户空间程序的代码不直接与内核模块交互，这部分代码的移植不依赖于内核模块的开发。</p>
+<p>在<a href="http://docs.openvswitch.org/en/latest/topics/porting/" target="_blank" rel="noopener">OVS移植指南</a>中，对DPIF组件做了详细的说明。DPIF组件运行在用户空间，主要负责与内核模块交互，是用户空间程序与内核模块通信的桥梁。在<a href="http://openvswitch.sourcearchive.com/documentation/1.1.0-1/dpif-provider_8h_source.html" target="_blank" rel="noopener">dpif-provider.h</a>中定义了一个DPIF provider必须实现的接口。虽然，在每一个平台上实现一个DPIF provider是被允许的，但是，从社区的反馈来看，更为理想的方式是尽可能地在不同的平台上使用通用的代码。所以，Hyper-V平台和Linux平台上的DPIF provider合用同一套代码逻辑。这些接口的代码在dpif-netlink.c文件中。</p>
+<p>接下来，将在一个独立的小节中，详细阐述内核和用户空间接口。在此，你只需要知道在Windows平台上，DPIF provider是基于netlink的，并且它们合用代码。</p>
+<h1 id="内核模块-Datapath"><a href="#内核模块-Datapath" class="headerlink" title="内核模块 (Datapath)"></a>内核模块 (Datapath)</h1><h2 id="NDIS驱动栈接口"><a href="#NDIS驱动栈接口" class="headerlink" title="NDIS驱动栈接口"></a>NDIS驱动栈接口</h2><p>在Hyper-V平台上，OVS交换机扩展模块能够被加载到任何一个虚拟交换机的驱动栈上。但是，OVS只支持被加载到一个虚拟交换机的NDIS驱动栈中。所以，与Linux平台一样，OVS在Hyper-V平台上也是一个数据平面。所有的物理网卡以外部网络适配器的方式连接到虚拟交换机上。</p>
+<p>OVS交换机扩展驱动模块把自己注册为过滤驱动，同时也注册了交换机/端口管理和数据平面的回调函数。换而言之，当一个交换机在Hyper-V的根工作区（宿主机）上被创建后，OVS驱动模块在回调函数中初始化必须的数据结构。OVS驱动模块注册的回调函数包括，与端口管理相关的回调函数，以及外部物理网络适配器或者虚拟机的网络适配器与一个端口连接或断开连接的回调函数。另外，还有一组回调函数处理一个VIF（子工作区的网络适配器）发送数据报和一个外部网卡接收数据报。</p>
+<p>如图所示，一个可扩展的交换机扩展模块会处理两次虚拟机发送的数据报 - 一次是在上行通道上，而另一次是在下行通道上。OVS的转发逻辑是基于上行通道设计的。因此，OVS模块实现以下的接口：</p>
+<ul>
+<li>上行发送数据：拦截数据报，并基于流表执行转发。这些动作包括，将数据报直接转发到端口。必要的数据报的修改，这可能会导致创建一个新的数据报。转发的动作按照流表中指定的动作执行。</li>
+<li>上行数据处理完成: 清理和释放在上行链路中OVS创建的数据报；放行上层模块创建的数据报。</li>
+<li>下行数据接收: 放行.</li>
+<li>下行数据接收完成: 放行.</li>
+</ul>
+<h2 id="内核模块与用户空间工具交互"><a href="#内核模块与用户空间工具交互" class="headerlink" title="内核模块与用户空间工具交互"></a>内核模块与用户空间工具交互</h2><p>为了内核模块与用户空间工具间通信，OVS开发实现了一个Windows的虚拟设备。该设备等同一个POSIX平台上经典的字符设备，提供读、写和ioctl接口。用户空间的netdev和DPIF组件使用虚拟设备的ioctls接口接收或发送消息。</p>
+<h2 id="Netlink消息解析"><a href="#Netlink消息解析" class="headerlink" title="Netlink消息解析"></a>Netlink消息解析</h2><p>OVS用户空间工具和内核模块间的通信采用的是<a href="https://en.wikipedia.org/wiki/Netlink" target="_blank" rel="noopener">Netlink消息</a>的方式。下面主要讨论这方面的细节。 在内核模块中，netlink消息解析器是依照用户空间工具的netlink消息解析器重写的。实际上，这部分代码中的大部分是从用户空间工具的代码移植过来的。</p>
+<p>依照用户空间工具的struct ofpbuf的代码，为了更方便地解析和组装netlink消息，内核模块开发实现了一个可管理的缓存组件（a managed buffer）。</p>
+<h2 id="Netlink套接字"><a href="#Netlink套接字" class="headerlink" title="Netlink套接字"></a>Netlink套接字</h2><p>在Linux平台上，OVS用户空间工具使用<a href="https://en.wikipedia.org/wiki/Netlink" target="_blank" rel="noopener">netlink套接字</a>发送和接收netlink消息。因此大部分的用户空间工具的代码包括DPIF provider被复用。OVS用户空间工具实现了一个虚拟的netlink套接字。众所周知，Windows平台不支持原生的netlink套接字，并且套接字的协议族也不支持扩展。所以，在Windows平台上实现一个原生的netlink套接字是不可能的。在lib/netlink-socket.c中实现了一个模拟的netlink套接字，并且支持所有的以nl开头的接口。每个netlink套接字会打开一个虚拟设备的句柄。更多的细节在用户空间工具一节的netlink套接字中被阐述。</p>
+<p>Netlink套接字组件，支持典型的读消息、写消息、丢弃和事务的netlink原语。所以，上层逻辑不会因为netlink组件不是原生的而受到影响。</p>
+<h2 id="交换机管理"><a href="#交换机管理" class="headerlink" title="交换机管理"></a>交换机管理</h2><p>在前面解释过，在驱动加载时，内核模块向NDIS驱动栈注册了管理回掉函数，当这些回掉函数被调用时，OVS的数据结构，流表等被初始化。用户空间工具的一些操作也将通过ioctl接口调用到这些函数，例如，创建一个隧道接口等操作。</p>
+<h2 id="端口管理"><a href="#端口管理" class="headerlink" title="端口管理"></a>端口管理</h2><p>我们已经知道，OVS内核模块通过向NDIS驱动栈注册的管理回掉函数获得端口被加入到Hyper-V虚拟交换机的信息。当这些回掉函数被调用时，与端口相关的数据结构将被初始化。另外，一些端口是隧道端口，这是OVS特有的，在Hyper-V交换机中并不存在，它们是OVS的用户空间工具创建的。</p>
+<p>Hyper-V端口“frientlyName”域的值被用来标识端口是不是Hyper-V的接口。其被称之为“OVS-port-name”。用户空间工具设置Hyper-V端口“OVS-port-name”的值，这个值取自OVSDB的接口表name字段。当用户空间工具调用内核模块接口添加OVS端口时，通过OVS端口的名字和Hyper-V端口的“OVS-port-name”，OVS端口和Hyper-V端口被一一映射。</p>
+<p>OVS端口，不论是由Hyper-V交换机添加的，还是OVS的用户工具添加的，都有独立的hash表和统计量。</p>
+<h2 id="流表-动作-数据报转发"><a href="#流表-动作-数据报转发" class="headerlink" title="流表/动作/数据报转发"></a>流表/动作/数据报转发</h2><p>基于流表及其动作的数据报转发是OVS内核模块的核心功能。上行链路的每一个数据报，会被匹配到相应的流表上，并执行流表中动作。这些动作可能只是简单的将数据报转发到对应的目的端口上，或者更为常见的修改数据报，如插入隧道的信息或VLAN的ID，然后通过外部端口把它们发送到目的主机上。</p>
+<h2 id="隧道"><a href="#隧道" class="headerlink" title="隧道"></a>隧道</h2><p>隧道技术的实现使用Hyper-V的内部端口。Hyper-V的内部端口是一个虚拟的网络适配器，其在Hyper-V主机上可见，并被连接到虚拟交换机上。Hyper-V内部端口是主机和虚拟交换机间的交互接口。内部端口的主要作用是隧道的终端节点（VTEP）,其配置有隧道终端节点的IP地址。</p>
+<p>在Hyper-V交换机上，并没有隧道端口。它们是由OVS维护的虚拟端口。在执行动作时，如果输出接口是隧道接口，OVS会立即基于隧道的信息对数据报执行封装操作。封装后的数据报被发送到外部端口上，当它们出现在外部的网络上时，这些数据报看起来是来自来VTEP的。</p>
+<p>同样地，当一个隧道消息通过与内部端口（VTEP）绑定的外部端口被接收到时，如果是的话，被嵌入到隧道消息中的数据报被直接转发到目的端口上（大多数情况下是虚拟网络适配器，但是flow表决定是哪一个）。对于OVS无法处理的数据报，则交给Windows过滤平台（WFP）框架来处理。当前，OVS使用Windows的IP栈将被分片的IP数据报的重新组装以及去掉封装信息。</p>
+<p>IP helper库函数提供相应的接口，通过它们，可以得到内部端口的IP地址和其他的信息。</p>
+<h2 id="事件通知"><a href="#事件通知" class="headerlink" title="事件通知"></a>事件通知</h2><p>前面提到的虚拟设备被用来向用户空间工具发送事件通知。在这里使用了共享内存和重叠IO的方式。</p>
+<h2 id="用户空间组件"><a href="#用户空间组件" class="headerlink" title="用户空间组件"></a>用户空间组件</h2><p>OVS的用户空间程序基本上是符合POSIX标准的代码，尽量少地使用Linux平台特有的功能。绝大部分的用户空间程序的代码不直接与内核模块交互，这部分代码的移植不依赖于内核模块的开发。</p>
+<p>本小节，主要讨论与内核模块交互的用户空间组件。</p>
+<p>我们已经知道，Hyper-V平台上的OVS复用了Linux平台上的DPIF provider的实现。在Linux平台上，DPIF provider通过netlink套接字和netlink消息在内核和用户空间间传递消息。在Linux平台上，这种方式被广泛地使用。为了解决这个问题，OVS在Hyper-V平台上实现了netlink套接字（虚拟的，非原生的Netlink socket）和netlink消息。</p>
+<p>复用DPIF providr代码的主要的优势在于：</p>
+<ul>
+<li>易于维护:<br>在dpif-provider.h中定义的接口任意的改变不会导致大量的修改。另外，熟悉DPIF provider的Linux平台代码的开发者能容易地在Hyper-V平台上继续开发。</li>
+<li>Netlink消息的内在的优势<br>Netlink消息的扩展性非常好。每个消息都有版本号，通过版本检查，用户空间工具能更好地与内核模块兼容。</li>
+</ul>
+<h2 id="Netlink套接字-1"><a href="#Netlink套接字-1" class="headerlink" title="Netlink套接字"></a>Netlink套接字</h2><p>我们已经知道，在windows平台上，OVS开发了一个模拟的netlink套接字，实现代码在lib/netlink-socket.c。Netlink套接字创建一个OVS虚拟设备的句柄，并且模拟netlink套接字的接收消息、发送消息、丢弃和事务的原语。大多数的nl开头的函数都被支持。</p>
+<p>事实上，模拟的netlink套接字不是原生的在很多方面是显而易见的。一个例子是，netlink套接字的PID在OVS的虚拟设备被创建时，不是被自动赋值的。netlink的PID是通过一个额外的命令（在OvsDpInterfaceExt.h中定义）从内核中获得的。</p>
+<h2 id="DPIF-Provider"><a href="#DPIF-Provider" class="headerlink" title="DPIF Provider"></a>DPIF Provider</h2><p>前面已经提到过，在Linux上实现的基于netlink套接字和netlink消息的DPIF provider被移植到Windows平台上。</p>
+<p>在两个平台上，大部分的代码是一样的。接收消息的部分是完全不同的。Linux平台上使用epoll函数监视套接字的状态，Windows平台不支持这样的机制。</p>
+<h2 id="netdev-windows"><a href="#netdev-windows" class="headerlink" title="netdev-windows"></a>netdev-windows</h2><p>在lib/netdev-provider.h中定义的网络适配器接口的windows版本，提供了获得其很多属性信息的功能。与在Linux平台上实现的netdev provider相比，它的功能很简单；并且不支持创建任何的网络适配器接口，如tap设备，以及接收和发送数据报。在datapath-windows/include/OvsDpInterfaceExt.h中定义了被netdev-windows使用的内核模块接口。</p>
+<h2 id="设置OVS-port-name的Powershell脚本"><a href="#设置OVS-port-name的Powershell脚本" class="headerlink" title="设置OVS-port-name的Powershell脚本"></a>设置OVS-port-name的Powershell脚本</h2><p>在“端口管理”一节读者已经了解到，每个Hyper-V的虚拟交换机的端口有一个名字为‘FriendlyName’属性，在OVS中，其被称之为“OVS-port-name”。OVS的代码中包含一个powershell的命令，其实现了设置Hyper-V的端口的“OVS-port-name”属性的功能。</p>
+<h1 id="内核模块与用户空间工具接口"><a href="#内核模块与用户空间工具接口" class="headerlink" title="内核模块与用户空间工具接口"></a>内核模块与用户空间工具接口</h1><h2 id="openvswitch-h-and-OvsDpInterfaceExt-h"><a href="#openvswitch-h-and-OvsDpInterfaceExt-h" class="headerlink" title="openvswitch.h and OvsDpInterfaceExt.h"></a>openvswitch.h and OvsDpInterfaceExt.h</h2><p>因为DPIF provider组件复用了Linux平台的代码，Windows内核数据模块提供了与Linux数据模块同样的接口。在Linux平台上，这些接口定义在datapath/linux/compat/include/linux/openvswitch.h文件中。在Windwos平台上，在编译用户空间工具时，这些接口的定义和声明被导出到datapath-windows/include/OvsDpInterface.h文件中。</p>
+<p>也就是说，新的接口文件中包含了一些Windows平台独有的特性。</p>
+<h1 id="数据报的处理流程"><a href="#数据报的处理流程" class="headerlink" title="数据报的处理流程"></a>数据报的处理流程</h1><p>图1中用被标号的步骤描述了，一个数据报从一个虚拟网络适配器被发出，然后被转发到其他的虚拟网络适配器或物理网络适配器的过程。至此，读者已经了解到，每一个虚拟网络适配器通过一个端口被连接到一个虚拟交换机上，同时每个端口都可以从虚拟交换机的上行或下行路径上发送或接收数据报。在图1中，每个步骤n被标注为#n。</p>
+<p>数据报的处理流程：</p>
+<ol>
+<li>当一个数据报从虚拟网络适配器、物理网络适配器或一个虚拟交换机的内部端口被发送后，该数据报就出现在网络的上行路径上。</li>
+<li>OVS内核模块接收到数据报。<ol>
+<li>OVS从流表中查找与数据报匹配的表项，然后执行相应的动作。</li>
+<li>如果没有找到匹配的表项，该数据报被发送给用户空间程序，其将检查数据报，并确定相应的动作。</li>
+<li>用户空间程序通过指定操作运行数据报，并且也许在将来对这样的数据报插入一个流表项。<div class="note default"><p>译者注：<br>    这一段是直译。Linux平台的处理过程中，这一步是基于数据报生成一个流表项，然后将该流表项注入到内核模块中。<br>    另外，内核模块发给用户空间程序的数据只包括数据报的报头，不包含数据部分。</p></div></li>
+<li>目标端口被加入到数据报中，然后将其返还给Hyper-V虚拟交换机。</li>
+</ol>
+</li>
+<li>Hyper-V虚拟交换机依据数据报中的目的端口转发数据报，也就是将数据报推送到下行路径上。</li>
+<li>数据报被转发到目的虚拟网络适配器上。</li>
+<li>如果物理网络适配器是数据报的目的端口，那么它就会被转发到物理网络适配器上。</li>
+</ol>
+<h1 id="编译和部署"><a href="#编译和部署" class="headerlink" title="编译和部署"></a>编译和部署</h1><p>Windows平台的用户空间组件可以使用autoconf工具来配置编译工具链，因此可以按照BUILD.Windows文件的步骤配置。剩余的工作就是使用make命令了。</p>
+<p>OVS内核模块是一个Visual Studio 2013的解决方案，请使用VS2013来编译。计划在不久的将来，编译可以不依赖于IDE。</p>
+<p>代码中包含一个用于加载内核驱动的脚本。一旦编译成功，它能帮助你完成其余的工作。</p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/openvswitch/" rel="tag"># openvswitch</a>
+          
+            <a href="/tags/hyper-v/" rel="tag"># hyper-v</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2018/04/10/lstm/" rel="next" title="用于情感分析的LSTM网络(LSTM Networks for Sentiment Analysis)">
+                <i class="fa fa-chevron-left"></i> 用于情感分析的LSTM网络(LSTM Networks for Sentiment Analysis)
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+      
+        <div id="gitment-container"></div>
+      
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">xiaohutou</p>
+              <p class="site-description motion-element" itemprop="description">有志 有识 有恒</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">9</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+
+          
+
+          
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#背景（Background-Info）"><span class="nav-number">1.</span> <span class="nav-text">背景（Background Info）</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#设计"><span class="nav-number">2.</span> <span class="nav-text">设计</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#内核模块-Datapath"><span class="nav-number">3.</span> <span class="nav-text">内核模块 (Datapath)</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#NDIS驱动栈接口"><span class="nav-number">3.1.</span> <span class="nav-text">NDIS驱动栈接口</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#内核模块与用户空间工具交互"><span class="nav-number">3.2.</span> <span class="nav-text">内核模块与用户空间工具交互</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Netlink消息解析"><span class="nav-number">3.3.</span> <span class="nav-text">Netlink消息解析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Netlink套接字"><span class="nav-number">3.4.</span> <span class="nav-text">Netlink套接字</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#交换机管理"><span class="nav-number">3.5.</span> <span class="nav-text">交换机管理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#端口管理"><span class="nav-number">3.6.</span> <span class="nav-text">端口管理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#流表-动作-数据报转发"><span class="nav-number">3.7.</span> <span class="nav-text">流表/动作/数据报转发</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#隧道"><span class="nav-number">3.8.</span> <span class="nav-text">隧道</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#事件通知"><span class="nav-number">3.9.</span> <span class="nav-text">事件通知</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#用户空间组件"><span class="nav-number">3.10.</span> <span class="nav-text">用户空间组件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Netlink套接字-1"><span class="nav-number">3.11.</span> <span class="nav-text">Netlink套接字</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#DPIF-Provider"><span class="nav-number">3.12.</span> <span class="nav-text">DPIF Provider</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#netdev-windows"><span class="nav-number">3.13.</span> <span class="nav-text">netdev-windows</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#设置OVS-port-name的Powershell脚本"><span class="nav-number">3.14.</span> <span class="nav-text">设置OVS-port-name的Powershell脚本</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#内核模块与用户空间工具接口"><span class="nav-number">4.</span> <span class="nav-text">内核模块与用户空间工具接口</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#openvswitch-h-and-OvsDpInterfaceExt-h"><span class="nav-number">4.1.</span> <span class="nav-text">openvswitch.h and OvsDpInterfaceExt.h</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#数据报的处理流程"><span class="nav-number">5.</span> <span class="nav-text">数据报的处理流程</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#编译和部署"><span class="nav-number">6.</span> <span class="nav-text">编译和部署</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2018</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">xiaohutou</span>
+
+  
+
+  
+</div>
+
+
+
+
+  <div class="powered-by">由 <a class="theme-link" target="_blank" href="https://hexo.io">Hexo</a> 强力驱动 v3.7.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 &mdash; <a class="theme-link" target="_blank" href="https://github.com/theme-next/hexo-theme-next">NexT.Gemini</a> v6.2.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=6.2.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=6.2.0"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=6.2.0"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=6.2.0"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=6.2.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=6.2.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=6.2.0"></script>
+
+
+
+  
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+<!-- LOCAL: You can save these files to your site and update links -->
+    
+        
+        <link rel="stylesheet" href="https://aimingoo.github.io/gitmint/style/default.css">
+        <script src="https://aimingoo.github.io/gitmint/dist/gitmint.browser.js"></script>
+    
+<!-- END LOCAL -->
+
+    
+
+    
+      <script type="text/javascript">
+      function renderGitment(){
+        var gitment = new Gitmint({
+            id: window.location.pathname,
+            owner: 'xiaohutou',
+            repo: 'xiaohutou.github.io',
+            
+            lang: "" || navigator.language || navigator.systemLanguage || navigator.userLanguage,
+            
+            oauth: {
+            
+            
+                client_secret: '67f5892dc03fd6d49a5c95713a520d93077da765',
+            
+                client_id: '649abcb8a6b6f2bbc68b'
+            }});
+        gitment.render('gitment-container');
+      }
+
+      
+      renderGitment();
+      
+      </script>
+    
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

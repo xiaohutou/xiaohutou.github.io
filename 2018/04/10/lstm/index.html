@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2"/>
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=6.2.0" rel="stylesheet" type="text/css" />
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.2.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.2.0" color="#222">
+
+
+
+
+
+
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.2.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="原文 声明：  本译文并未取得原作者授权，如有侵权行为，请发邮件到13581561959@163.com。我将立即删除。 翻译中，意译的地方较多。如有错误，或不准确的地方，欢迎邮件讨论，谢谢。   这个教程旨在演示如何使用Theano实现一个基于长短期记忆的循环神经网络。在这里，该模型用于分析最大的影视评论数据集（即IMDB数据集）中的影评中的情感色彩。 在这个教程中，我们将训练一个二分分类的模型">
+<meta name="keywords" content="LSTM,Machine learning,翻译">
+<meta property="og:type" content="article">
+<meta property="og:title" content="用于情感分析的LSTM网络(LSTM Networks for Sentiment Analysis)">
+<meta property="og:url" content="http://yoursite.com/2018/04/10/lstm/index.html">
+<meta property="og:site_name" content="小虎头 加油">
+<meta property="og:description" content="原文 声明：  本译文并未取得原作者授权，如有侵权行为，请发邮件到13581561959@163.com。我将立即删除。 翻译中，意译的地方较多。如有错误，或不准确的地方，欢迎邮件讨论，谢谢。   这个教程旨在演示如何使用Theano实现一个基于长短期记忆的循环神经网络。在这里，该模型用于分析最大的影视评论数据集（即IMDB数据集）中的影评中的情感色彩。 在这个教程中，我们将训练一个二分分类的模型">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://yoursite.com/2018/04/10/lstm/lstm_memorycell.png">
+<meta property="og:image" content="http://yoursite.com/2018/04/10/lstm/lstm.png">
+<meta property="og:updated_time" content="2018-04-17T13:48:40.396Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="用于情感分析的LSTM网络(LSTM Networks for Sentiment Analysis)">
+<meta name="twitter:description" content="原文 声明：  本译文并未取得原作者授权，如有侵权行为，请发邮件到13581561959@163.com。我将立即删除。 翻译中，意译的地方较多。如有错误，或不准确的地方，欢迎邮件讨论，谢谢。   这个教程旨在演示如何使用Theano实现一个基于长短期记忆的循环神经网络。在这里，该模型用于分析最大的影视评论数据集（即IMDB数据集）中的影评中的情感色彩。 在这个教程中，我们将训练一个二分分类的模型">
+<meta name="twitter:image" content="http://yoursite.com/2018/04/10/lstm/lstm_memorycell.png">
+
+
+
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2018/04/10/lstm/"/>
+
+
+
+<script type="text/javascript" id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>用于情感分析的LSTM网络(LSTM Networks for Sentiment Analysis) | 小虎头 加油</title>
+  
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style type="text/css">
+    .use-motion .motion-element,
+    .use-motion .brand,
+    .use-motion .menu-item,
+    .sidebar-inner,
+    .use-motion .post-block,
+    .use-motion .pagination,
+    .use-motion .comments,
+    .use-motion .post-header,
+    .use-motion .post-body,
+    .use-motion .collection-title { opacity: initial; }
+
+    .use-motion .logo,
+    .use-motion .site-title,
+    .use-motion .site-subtitle {
+      opacity: initial;
+      top: initial;
+    }
+
+    .use-motion {
+      .logo-line-before i { left: initial; }
+      .logo-line-after i { right: initial; }
+    }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">小虎头 加油</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle">老兵不死，之渐凋零</p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+    <a href="/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-home"></i> <br />首页</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+    <a href="/archives/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />归档</a>
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/04/10/lstm/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="xiaohutou">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="小虎头 加油">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">用于情感分析的LSTM网络(LSTM Networks for Sentiment Analysis)
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2018-04-10 02:56:25" itemprop="dateCreated datePublished" datetime="2018-04-10T02:56:25+09:00">2018-04-10</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2018-04-17 22:48:40" itemprop="dateModified" datetime="2018-04-17T22:48:40+09:00">2018-04-17</time>
+              
+            
+          </span>
+
+          
+
+          
+            
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+                <a href="/2018/04/10/lstm/#comments" itemprop="discussionUrl">
+                  <span class="post-meta-item-text">评论数：</span> <span class="post-comments-count gitment-comments-count" data-xid="/2018/04/10/lstm/" itemprop="commentsCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <a href="http://deeplearning.net/tutorial/lstm.html" target="_blank" rel="noopener">原文</a>
+<blockquote><p>声明：</p>
+<ol>
+<li>本译文并未取得原作者授权，如有侵权行为，请发邮件到<a href="mailto:13581561959@163.com" target="_blank" rel="noopener">13581561959@163.com</a>。我将立即删除。</li>
+<li>翻译中，意译的地方较多。如有错误，或不准确的地方，欢迎邮件讨论，谢谢。</li>
+</ol>
+</blockquote>
+<p>这个教程旨在演示如何使用Theano实现一个基于长短期记忆的循环神经网络。在这里，该模型用于分析最大的影视评论数据集（即IMDB数据集）中的影评中的情感色彩。</p>
+<p>在这个教程中，我们将训练一个二分分类的模型。对于给定一个影评，该模型会判断其是积极还是消极的。</p>
+<h2 id="数据"><a href="#数据" class="headerlink" title="数据"></a>数据</h2><p>上面已经提到了，本文的python脚本被用于在一个很大的影评数据集上训练长短期记忆循环神经网络模型。</p>
+<p>虽然数据是公开的，但是本文作者提供一个已经按照LSTM实现的要求预先处理过的数据集。运行本文提供的代码将自动下载这些数据。如果你想使用自己的数据来训练模型，请使用本文提供的数据预处理脚本对数据进行清洗。</p>
+<p>一旦模型被训练完成后，你就能使用你自己的基于本文提供的字典的语料库测试它。</p>
+<a id="more"></a>
+<h2 id="模型"><a href="#模型" class="headerlink" title="模型"></a>模型</h2><h3 id="LSTM"><a href="#LSTM" class="headerlink" title="LSTM"></a>LSTM</h3><p>在传统的循环神经网络中，在梯度后向传播的过程中，经过大量（与步长一样多）的与循环隐藏层相关联的权重矩阵相乘，梯度向量达到最优。（In a traditional recurrent neural network, during the gradient back-propagation phase, the gradient signal can end up being multiplied a large number of times (as many as the number of timesteps) by the weight matrix associated with the connections between the neurons of the recurrent hidden layer. ）这意味着，转置矩阵的维度对于学习的过程影响很大。</p>
+<p>如果这个矩阵的权重比较小（或者说，更规范地说，如果权重矩阵的特征值小于1.0），这将导致一种被称为梯度消失的情况发生，即梯度向量太小了以至于学习的过程变得缓慢或停止。在这种情况下，学习数据间的长短期关系的也非常的困难。与之相对，如果这个矩阵的权重非常的大（或者，更规范地说，如果权重矩阵的主特征值大于1.0），这会导致梯度向量太大以至于学习出现偏离。这通常被称为梯度膨胀。（译者，这是再说过拟合和欠拟合吗？）</p>
+<p>LSTM通过一个全新的结构，记忆元（见图1），来解决这些问题。一个记忆元由四个主要的元素构成：一个输入门，一个自反馈的神经元，一个失忆门和一个输出门。自反馈神经元的自反馈连接的权重为1.0，并且其屏蔽任何的外部干扰，确保记忆元的状态稳定当其从一个时间点转移到下一个时间点。这些门被用来模拟记忆元与自己和外部环境交互。输入门能允许输入信号改变其状态或阻止它。另一方面，输出门能允许或阻止记忆元的状态影响其他的神经元。最后，失忆门能模拟记忆元的自反馈连接，根据需要，记忆元可以选择记住或忘记它的上一个状态。</p>
+<img src="/2018/04/10/lstm/lstm_memorycell.png" title="Figure 1: Illustration of an LSTM memory cell.">
+<p>下面的公式描述了记忆元是如何在每一个时间点t来更新其状态的。在这些公式中：</p>
+<ul>
+<li>$ x_t $   表示在t时刻，记忆元的输入</li>
+<li>$ W_i, W_f, W_c, W_o, U_f, U_c, U_o和V_o $  表示权重矩阵</li>
+<li>$ b_i, b_f, b_c 和 b_o$    是偏好向量</li>
+</ul>
+<p>首先，计算在时刻t，$i_t$，输入门和$\widetilde{C_t}$的值，其中$\widetilde{C_t}$是记忆元的期望值。<br>$$i_t = \sigma(W_i x_t + U_i h_{t-1} + b_i) \tag{1}$$ $$\widetilde{C_t} = tanh(W_c x_t + U_c h_{t-1} + b_c) \tag{2}$$</p>
+<p>其次，计算$f_t$的值，其是记忆元的忘记门在时间点t的激活值。<br>$$f_t = \sigma(W_f x_t + U_f h_{t-1} + b_f) \tag{3}$$</p>
+<p>给定输入门的激活值$i_t$，健忘门的激活值$f_t$和期望值$\widetilde{C_t}$, 就可以得到记忆元在时间点t的值$C_t$是。<br>$$ C_t = i_t * \widetilde{C_t} + f_t * C_{t-1} \tag{4} $$</p>
+<p>得到记忆元的新的状态后，就可以计算出输出门的值，进而得到结果：<br>$$o_t = \sigma(W_o x_t + U_o h{t-1} + V_o C_t + b_o)\tag{5}$$ $$h_t = o_t * tanh(C_t)\tag{6}$$</p>
+<h2 id="本文采用的模型"><a href="#本文采用的模型" class="headerlink" title="本文采用的模型"></a>本文采用的模型</h2><p>在本教程中使用的模型是标准的LSTM模型的一个变种。在这个变种模型中，记忆元的输出门的激活值不依赖于记忆元的状态值$C_t$。因此，部分计算步骤效率更高（具体的计算细节请看下面的注释）。这意味着，在这个变种中，没有矩阵$V_o$，并且公式（5）被公式（7）替代。<br>$$o_t = \sigma(W_o x_t + U_o h_{t-1} + b_o) \tag{7}$$</p>
+<p>图2描述了本文所采用的模型，它由一个LSTM层加上一个平均池和logistic回归层组成。因此，给定输入序列$x_0, x_1, x_2, …, x_n$，LSTM的记忆元将计算得出表示序列$h_0, h_1, h_2, …, h_n$。表示序列取所有时间点的平均值（This representation sequence is then averaged over all timesteps resulting in representation h）。最后，这个表示值做为logistic回归层的输入，计算得到输入序列所代表的分类。</p>
+<img src="/2018/04/10/lstm/lstm.png" title="Figure 2 : Illustration of the model used in this tutorial. It is composed of a single LSTM layer followed by mean pooling over time and logistic regression.">
+<p><em>实现说明</em>：本教程提供的代码中，公式（1），（2），（3）和（7）是并行计算的。之所以能够这样做，是因为他们不依赖于其他的公式的计算结果。具体的实现过程是，把四个矩阵$W_*$连接成一个权重矩阵W，同理，权重举证$U_*$被连接成一个矩阵U，偏好向量{b_*}被连接成一个向量b。最后，前置非线性的激活值可以通过下面公式得到。</p>
+<p>$$z = W x_t + U h_{t-1} + b$$</p>
+<p>然后，计算结果被分割得到i，f，$\widetilde{C_t}$和o的前置非线性激活值，并且，非线性化被独立地应用到这些变量上。（The result is then sliced to obtain the pre-nonlinearity activations for i, f, $\widetilde{C_t}$, and o and the non-linearities are then applied independently for each.）</p>
+<h2 id="代码-引用-联系方式"><a href="#代码-引用-联系方式" class="headerlink" title="代码 - 引用 - 联系方式"></a>代码 - 引用 - 联系方式</h2><h3 id="代码"><a href="#代码" class="headerlink" title="代码"></a>代码</h3><p>LSTM的实现主要包含在以下两个文件中：</p>
+<ul>
+<li><a href="http://deeplearning.net/tutorial/code/lstm.py" target="_blank" rel="noopener">lstm.py</a>: 定义和训练模型</li>
+<li><a href="http://deeplearning.net/tutorial/code/imdb.py" target="_blank" rel="noopener">imdb.py</a>: 辅助脚本。加载和预处理IMDB数据集。</li>
+</ul>
+<p>读者可以下载这些脚本并将其放在同一个目录下，然后使用下面的命令来运行：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">THEANO_FLAGS=<span class="string">"floatX=float32"</span> python lstm.py</span><br></pre></td></tr></table></figure></p>
+<p>脚本会自动下载数据并解压它们。</p>
+<p><em>注意</em>：本文提供的代码中支持Stochastic Gradient Descent (SGD), AdaDelta and RMSProp的logistic回归优化方法. 建议读者使用AdaDelta或者RMSProp, 在本文提出的模型中SGD的表现非常的差。</p>
+<h3 id="论文"><a href="#论文" class="headerlink" title="论文"></a>论文</h3><p>如果你使用这个教程，请引用下面这些论文<br>Introduction of the LSTM model:</p>
+<ul>
+<li><a href="http://deeplearning.cs.cmu.edu/pdfs/Hochreiter97_lstm.pdf" target="_blank" rel="noopener">pdf</a> Hochreiter, S., &amp; Schmidhuber, J. (1997). Long short-term memory. Neural computation, 9(8), 1735-1780.</li>
+</ul>
+<p>Addition of the forget gate to the LSTM model:</p>
+<ul>
+<li><a href="http://www.mitpressjournals.org/doi/pdf/10.1162/089976600300015015" target="_blank" rel="noopener">pdf</a> Gers, F. A., Schmidhuber, J., &amp; Cummins, F. (2000). Learning to forget: Continual prediction with LSTM. Neural computation, 12(10), 2451-2471.</li>
+</ul>
+<p>More recent LSTM paper:</p>
+<ul>
+<li><a href="http://www.cs.toronto.edu/~graves/preprint.pdf" target="_blank" rel="noopener">pdf</a> Graves, Alex. Supervised sequence labelling with recurrent neural networks. Vol. 385. Springer, 2012.</li>
+</ul>
+<p>Papers related to Theano:</p>
+<ul>
+<li><a href="http://www.iro.umontreal.ca/~lisa/pointeurs/nips2012_deep_workshop_theano_final.pdf" target="_blank" rel="noopener">pdf</a> Bastien, Frédéric, Lamblin, Pascal, Pascanu, Razvan, Bergstra, James, Goodfellow, Ian, Bergeron, Arnaud, Bouchard, Nicolas, and Bengio, Yoshua. Theano: new features and speed improvements. NIPS Workshop on Deep Learning and Unsupervised Feature Learning, 2012.</li>
+<li><a href="http://www.iro.umontreal.ca/~lisa/pointeurs/theano_scipy2010.pdf" target="_blank" rel="noopener">pdf</a> Bergstra, James, Breuleux, Olivier, Bastien, Frédéric, Lamblin, Pascal, Pascanu, Razvan, Desjardins, Guillaume, Turian, Joseph, Warde-Farley, David, and Bengio, Yoshua. Theano: a CPU and GPU math expression compiler. In Proceedings of the Python for Scientific Computing Conference (SciPy), June 2010.</li>
+</ul>
+<h3 id="联系方式"><a href="#联系方式" class="headerlink" title="联系方式"></a>联系方式</h3><p>对于任何的问题或反馈，请email Pierre Luc Carrier(<a href="mailto:&#x63;&#97;&#114;&#x72;&#105;&#101;&#x70;&#108;&#64;&#105;&#114;&#x6f;&#x2e;&#x75;&#109;&#x6f;&#x6e;&#116;&#114;&#101;&#x61;&#108;&#46;&#x63;&#97;" target="_blank" rel="noopener">&#x63;&#97;&#114;&#x72;&#105;&#101;&#x70;&#108;&#64;&#105;&#114;&#x6f;&#x2e;&#x75;&#109;&#x6f;&#x6e;&#116;&#114;&#101;&#x61;&#108;&#46;&#x63;&#97;</a>) or <a href="http://www.kyunghyuncho.me/" target="_blank" rel="noopener">Kyunghyun Cho</a>. 我们非常期望能够收到你的邮件.</p>
+<h2 id="参考文献"><a href="#参考文献" class="headerlink" title="参考文献"></a>参考文献</h2><ul>
+<li>Hochreiter, S., &amp; Schmidhuber, J. (1997). Long short-term memory. Neural computation, 9(8), 1735-1780.</li>
+<li>Gers, F. A., Schmidhuber, J., &amp; Cummins, F. (2000). Learning to forget: Continual prediction with LSTM. Neural computation, 12(10), 2451-2471.</li>
+<li>Graves, A. (2012). Supervised sequence labelling with recurrent neural networks (Vol. 385). Springer.</li>
+<li>Hochreiter, S., Bengio, Y., Frasconi, P., &amp; Schmidhuber, J. (2001). Gradient flow in recurrent nets: the difficulty of learning long-term dependencies.</li>
+<li>Bengio, Y., Simard, P., &amp; Frasconi, P. (1994). Learning long-term dependencies with gradient descent is difficult. Neural Networks, IEEE Transactions on, 5(2), 157-166.</li>
+<li>Maas, A. L., Daly, R. E., Pham, P. T., Huang, D., Ng, A. Y., &amp; Potts, C. (2011, June). Learning word vectors for sentiment analysis. In Proceedings of the 49th Annual Meeting of the Association for Computational Linguistics: Human Language Technologies-Volume 1 (pp. 142-150). Association for Computational Linguistics.</li>
+</ul>
+<h2 id="后记"><a href="#后记" class="headerlink" title="后记"></a>后记</h2><p>文章不长，作者写的浅显易懂，没有遇到太大的困难。当然，部分语句理解的并不透彻，术语也不是太规范。在这里赞一下vim，其中文支持比emacs 25好的太多了。</p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/LSTM/" rel="tag"># LSTM</a>
+          
+            <a href="/tags/Machine-learning/" rel="tag"># Machine learning</a>
+          
+            <a href="/tags/翻译/" rel="tag"># 翻译</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2018/04/04/2018-04-04-21/" rel="next" title="华为交换机s57xx端口安全保护导致虚拟机无法联网">
+                <i class="fa fa-chevron-left"></i> 华为交换机s57xx端口安全保护导致虚拟机无法联网
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2018/04/17/ovs-on-hyperv-design/" rel="prev" title="OVS在Hyper-V平台上的设计原则">
+                OVS在Hyper-V平台上的设计原则 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+      
+        <div id="gitment-container"></div>
+      
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">xiaohutou</p>
+              <p class="site-description motion-element" itemprop="description">有志 有识 有恒</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">4</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">9</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+
+          
+
+          
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#数据"><span class="nav-number">1.</span> <span class="nav-text">数据</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#模型"><span class="nav-number">2.</span> <span class="nav-text">模型</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#LSTM"><span class="nav-number">2.1.</span> <span class="nav-text">LSTM</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#本文采用的模型"><span class="nav-number">3.</span> <span class="nav-text">本文采用的模型</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#代码-引用-联系方式"><span class="nav-number">4.</span> <span class="nav-text">代码 - 引用 - 联系方式</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#代码"><span class="nav-number">4.1.</span> <span class="nav-text">代码</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#论文"><span class="nav-number">4.2.</span> <span class="nav-text">论文</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#联系方式"><span class="nav-number">4.3.</span> <span class="nav-text">联系方式</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考文献"><span class="nav-number">5.</span> <span class="nav-text">参考文献</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#后记"><span class="nav-number">6.</span> <span class="nav-text">后记</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2018</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">xiaohutou</span>
+
+  
+
+  
+</div>
+
+
+
+
+  <div class="powered-by">由 <a class="theme-link" target="_blank" href="https://hexo.io">Hexo</a> 强力驱动 v3.7.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 &mdash; <a class="theme-link" target="_blank" href="https://github.com/theme-next/hexo-theme-next">NexT.Gemini</a> v6.2.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=6.2.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=6.2.0"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=6.2.0"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=6.2.0"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=6.2.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=6.2.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=6.2.0"></script>
+
+
+
+  
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+<!-- LOCAL: You can save these files to your site and update links -->
+    
+        
+        <link rel="stylesheet" href="https://aimingoo.github.io/gitmint/style/default.css">
+        <script src="https://aimingoo.github.io/gitmint/dist/gitmint.browser.js"></script>
+    
+<!-- END LOCAL -->
+
+    
+
+    
+      <script type="text/javascript">
+      function renderGitment(){
+        var gitment = new Gitmint({
+            id: window.location.pathname,
+            owner: 'xiaohutou',
+            repo: 'xiaohutou.github.io',
+            
+            lang: "" || navigator.language || navigator.systemLanguage || navigator.userLanguage,
+            
+            oauth: {
+            
+            
+                client_secret: '67f5892dc03fd6d49a5c95713a520d93077da765',
+            
+                client_id: '649abcb8a6b6f2bbc68b'
+            }});
+        gitment.render('gitment-container');
+      }
+
+      
+      renderGitment();
+      
+      </script>
+    
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
