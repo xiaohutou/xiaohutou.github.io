@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2"/>
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=6.2.0" rel="stylesheet" type="text/css" />
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.2.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.2.0" color="#222">
+
+
+
+
+
+
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.2.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="原文 OVS Conntrack Tutorial 声明：  本译文并未取得原作者授权，如有侵权行为，请发邮件到13581561959@163.com。我将立即删除。 翻译中，意译的地方较多。如有错误，或不准确的地方，欢迎邮件讨论，谢谢。  OpenvSwitch的链接追踪教程OVS能够与链接跟踪系统共同工作，此时Openflow流表被用于捕获TCP、UDP、ICMP等链接各种状态下的报文。（链接">
+<meta name="keywords" content="openvswitch,connection track">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OpenvSwitch的链接追踪教程">
+<meta property="og:url" content="http://yoursite.com/2018/04/22/ovs-conntrack-tutorial/index.html">
+<meta property="og:site_name" content="小虎头 加油">
+<meta property="og:description" content="原文 OVS Conntrack Tutorial 声明：  本译文并未取得原作者授权，如有侵权行为，请发邮件到13581561959@163.com。我将立即删除。 翻译中，意译的地方较多。如有错误，或不准确的地方，欢迎邮件讨论，谢谢。  OpenvSwitch的链接追踪教程OVS能够与链接跟踪系统共同工作，此时Openflow流表被用于捕获TCP、UDP、ICMP等链接各种状态下的报文。（链接">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://yoursite.com/2018/04/22/ovs-conntrack-tutorial/sample-topology.png">
+<meta property="og:image" content="http://yoursite.com/2018/04/22/ovs-conntrack-tutorial/conntrack-summary.png">
+<meta property="og:updated_time" content="2018-04-26T22:10:54.190Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="OpenvSwitch的链接追踪教程">
+<meta name="twitter:description" content="原文 OVS Conntrack Tutorial 声明：  本译文并未取得原作者授权，如有侵权行为，请发邮件到13581561959@163.com。我将立即删除。 翻译中，意译的地方较多。如有错误，或不准确的地方，欢迎邮件讨论，谢谢。  OpenvSwitch的链接追踪教程OVS能够与链接跟踪系统共同工作，此时Openflow流表被用于捕获TCP、UDP、ICMP等链接各种状态下的报文。（链接">
+<meta name="twitter:image" content="http://yoursite.com/2018/04/22/ovs-conntrack-tutorial/sample-topology.png">
+
+
+
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2018/04/22/ovs-conntrack-tutorial/"/>
+
+
+
+<script type="text/javascript" id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>OpenvSwitch的链接追踪教程 | 小虎头 加油</title>
+  
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style type="text/css">
+    .use-motion .motion-element,
+    .use-motion .brand,
+    .use-motion .menu-item,
+    .sidebar-inner,
+    .use-motion .post-block,
+    .use-motion .pagination,
+    .use-motion .comments,
+    .use-motion .post-header,
+    .use-motion .post-body,
+    .use-motion .collection-title { opacity: initial; }
+
+    .use-motion .logo,
+    .use-motion .site-title,
+    .use-motion .site-subtitle {
+      opacity: initial;
+      top: initial;
+    }
+
+    .use-motion {
+      .logo-line-before i { left: initial; }
+      .logo-line-after i { right: initial; }
+    }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">小虎头 加油</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle">老兵不死，之渐凋零</p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+    <a href="/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-home"></i> <br />首页</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+    <a href="/tags/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />标签</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+    <a href="/archives/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />归档</a>
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/04/22/ovs-conntrack-tutorial/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="xiaohutou">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="小虎头 加油">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">OpenvSwitch的链接追踪教程
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2018-04-22 01:00:43" itemprop="dateCreated datePublished" datetime="2018-04-22T01:00:43+09:00">2018-04-22</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2018-04-27 07:10:54" itemprop="dateModified" datetime="2018-04-27T07:10:54+09:00">2018-04-27</time>
+              
+            
+          </span>
+
+          
+
+          
+            
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+                <a href="/2018/04/22/ovs-conntrack-tutorial/#comments" itemprop="discussionUrl">
+                  <span class="post-meta-item-text">评论数：</span> <span class="post-comments-count gitment-comments-count" data-xid="/2018/04/22/ovs-conntrack-tutorial/" itemprop="commentsCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <a href="http://docs.openvswitch.org/en/latest/tutorials/ovs-conntrack/" target="_blank" rel="noopener">原文 OVS Conntrack Tutorial</a>
+<div class="note primary"><p>声明：</p>
+<ol>
+<li>本译文并未取得原作者授权，如有侵权行为，请发邮件到<a href="mailto:13581561959@163.com" target="_blank" rel="noopener">13581561959@163.com</a>。我将立即删除。</li>
+<li>翻译中，意译的地方较多。如有错误，或不准确的地方，欢迎邮件讨论，谢谢。</li>
+</ol></div>
+<h1 id="OpenvSwitch的链接追踪教程"><a href="#OpenvSwitch的链接追踪教程" class="headerlink" title="OpenvSwitch的链接追踪教程"></a>OpenvSwitch的链接追踪教程</h1><p>OVS能够与链接跟踪系统共同工作，此时Openflow流表被用于捕获TCP、UDP、ICMP等链接各种状态下的报文。（链接跟踪模块支持跟踪有状态和无状态的协议）。<br>本文阐述，如何使用OVS的链路跟踪模块捕获从TCP链接建立到断开的报文。本教程是在Linux平台上完成的，数据报处理模块使用的是Linux内核模块。<br><a id="more"></a></p>
+<h1 id="术语"><a href="#术语" class="headerlink" title="术语"></a>术语</h1><h2 id="链接跟踪（conntrack）"><a href="#链接跟踪（conntrack）" class="headerlink" title="链接跟踪（conntrack）"></a>链接跟踪（conntrack）</h2><p>链接跟踪模块主要被用于有状态的数据报检测。</p>
+<h2 id="流水线（pipeline）"><a href="#流水线（pipeline）" class="headerlink" title="流水线（pipeline）"></a>流水线（pipeline）</h2><p>数据报流水线由一组流表组成，在数据报的处理过程中，如果数据报与某个流表项匹配，就执行相应的动作。</p>
+<h2 id="网络命名空间（network-namespace）："><a href="#网络命名空间（network-namespace）：" class="headerlink" title="网络命名空间（network namespace）："></a>网络命名空间（network namespace）：</h2><p>在一个单实例的Linux内核中，通过网络命名空间可以创建一个虚拟的路由域。每个网络命名空间拥有独立的网络空间（ARP，路由表）和接口，</p>
+<h2 id="流表项（flow）"><a href="#流表项（flow）" class="headerlink" title="流表项（flow）:"></a>流表项（flow）:</h2><p>在本文中，流表项是指Openflow协议中定义的可编程流表项。流表项定义可以由Openflows控制器或OVS的命令行工具ovs-ofctl来完成，本文中，使用ovs-ofctl定义它们。一个流表项包含匹配字段和动作。</p>
+<h1 id="相关字段"><a href="#相关字段" class="headerlink" title="相关字段"></a>相关字段</h1><h2 id="匹配字段"><a href="#匹配字段" class="headerlink" title="匹配字段"></a>匹配字段</h2><p>在OVS中，下列字段与链接跟踪相关：</p>
+<ol>
+<li>ct_state: 用于匹配数据报的链接状态。取值范围如下：<ul>
+<li>new</li>
+<li>est</li>
+<li>rel</li>
+<li>rpl</li>
+<li>inv</li>
+<li>trk</li>
+<li>snat</li>
+<li>dnat<br>在实际的使用中，这些标志的前缀符“+”表示设置该标志，相反，前缀符“-”表示取消该标志。多个标志可以同时被使用，例如：ct_state=+trk+new。这些标志的使用将在后面的章节中介绍。关于它们的详细的说明，请参阅<a href="http://openvswitch.org/support/dist-docs/ovs-fields.7.txt" target="_blank" rel="noopener">OVS fileds documentation</a>。</li>
+</ul>
+</li>
+<li>ct_zone: 一个区域是指一个独立的链接上下文，通过一个ct动作设置其值。被最近的一个ct动作（即一个链接跟踪的Openflow流表项）设置的16位的ct_zone可以被其他的流表项作为匹配域。</li>
+<li>ct_mark: 32位的元数据被提交给数据报所对应的链接。其值为ct动作exec的参数。</li>
+<li>ct_label: 128位的标签被提交给数据报所对应的链接。其值位ct动作exec的参数。</li>
+<li>ct_nw_src / ct_ipv6_src: 指定被捕获的数据报的IPv4/IPv6源地址.</li>
+<li>ct_nw_dst / ct_ipv6_dst: 指定被捕获的数据报的IPv4/IPv6目的地址。</li>
+<li>ct_nw_proto: 指定被捕获的数据报的IP协议类型。</li>
+<li>ct_tp_src: 指定被捕获的数据报源端口号。</li>
+<li>ct_tp_dst: 指定被捕获的数据报的目的端口号。</li>
+</ol>
+<h2 id="动作（Actions）"><a href="#动作（Actions）" class="headerlink" title="动作（Actions）"></a>动作（Actions）</h2><p>OVS支持的与链接跟踪相关的“ct”动作。</p>
+<p>ct([argument][,argument…])</p>
+<p>“ct”动作将数据报文发送给链接跟踪模块。</p>
+<p>支持的参数如下：</p>
+<ol>
+<li><p>commit: 请求链接跟踪模块开始跟踪一个链接。</p>
+</li>
+<li><p>force: 该标志被用于快速地终止一个链接，然后在当前的链路上开始一个新的链接。</p>
+</li>
+<li><p>table=number: 将数据报流水线复制为两份。原始的数据报作为未被跟踪的数据报在当前的动作流水线中继续处理。被复制的数据报被发送到链接跟踪模块，这些数据报会重新回到Openflow流水线中触发后续的处理，但是这些数据报中的ct_state和其他的ct字段被置位。</p>
+</li>
+<li><p>zone=value OR zone=src[start..end]: 16位的上下文id，其被用于将链接隔离到不同的域，将叠加的网络映射到不同的区域中。zone的默认值为0。</p>
+</li>
+<li><p>exec([action][,action…]): 在链接跟踪上下文中执行特定的动作。只有更改ct_mark和ct_label地段的动作是被允许的。</p>
+</li>
+<li><p>alg=&lt;ftp/tftp&gt;: 指明alg（应用层网关）来跟踪特定的链接类型。</p>
+</li>
+<li><p>nat: 为被跟踪的链接指明地址和端口翻译。</p>
+</li>
+</ol>
+<h1 id="示例的拓扑结构（Sample-Topology）"><a href="#示例的拓扑结构（Sample-Topology）" class="headerlink" title="示例的拓扑结构（Sample Topology）"></a>示例的拓扑结构（Sample Topology）</h1><p>本文在下面的拓扑结构上演示链路跟踪。<br><img src="/2018/04/22/ovs-conntrack-tutorial/sample-topology.png" title="图1.Diagram: Sample Topology for conntrack testing"></p>
+<p>接下来，创建上图所示的网络。<br>创建网络命名空间“left”:<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ ip netns add left</span><br></pre></td></tr></table></figure></p>
+<p>创建网络命名空间“right”<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ ip netns add right</span><br></pre></td></tr></table></figure></p>
+<p>创建第一组veth虚拟网络接口：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ ip link add veth_l0 <span class="built_in">type</span> veth peer name veth_l1</span><br></pre></td></tr></table></figure></p>
+<p>将虚拟网络接口veth_l1添加到网络命名空间“left”中：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ ip link <span class="built_in">set</span> veth_l1 netns left</span><br></pre></td></tr></table></figure></p>
+<p>创建第二组veth虚拟网络接口：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ ip link add veth_r0 <span class="built_in">type</span> veth peer name veth_r1</span><br></pre></td></tr></table></figure></p>
+<p>将虚拟网络接口veth_r1添加到网络命名空间“right”中：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ ip link <span class="built_in">set</span> veth_r1 netns right</span><br></pre></td></tr></table></figure></p>
+<p>创建网桥br0:<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ ovs-vsctl add-br br0</span><br></pre></td></tr></table></figure></p>
+<p>将veth_l0和veth_r0添加到网桥br0中：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ ovs-vsctl add-port br0 veth_l0</span><br><span class="line">$ ovs-vsctl add-port br0 veth_r0</span><br></pre></td></tr></table></figure></p>
+<p>在网络命名空间“left”中产生的数据报的源IP/目的IP分别被设置为192.168.0.X / 10.0.0.X；在网络命名空间“right”中，则与之相反。这些数据报通过OVS路由到目的地址，看起来就像是在两个网络上 (192.168.0.X and 10.0.0.X) 的主机间的相互通信。这是常见的使用OVS模拟两个网络/子网间主机通信的方式。</p>
+<h1 id="Tool-used-to-generate-TCP-segments"><a href="#Tool-used-to-generate-TCP-segments" class="headerlink" title="Tool used to generate TCP segments"></a>Tool used to generate TCP segments</h1><p>scapy是一个强大的交互式网络数据报处理程序（使用python编写）。本文在Ubuntu 16.04系统上使用scapy构造数据报完成实验。（关于scapy的安装请参阅官方文档）。</p>
+<p>首先，在两个网络命名空间中分别创建scapy会话：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ sudo ip netns <span class="built_in">exec</span> left sudo `<span class="built_in">which</span> scapy`</span><br><span class="line"></span><br><span class="line">$ sudo ip netns <span class="built_in">exec</span> right sudo `<span class="built_in">which</span> scapy`</span><br></pre></td></tr></table></figure></p>
+<div class="note default"><p>注意：如果遇到这个错误</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">ifreq = ioctl(s, SIOCGIFADDR,struct.pack(&quot;16s16x&quot;,LOOPBACK_NAME))</span><br><span class="line">IOError: [Errno 99] Cannot assign requested address</span><br></pre></td></tr></table></figure><br>运行下面的命令：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ sudo ip netns exec &lt;namespace&gt; sudo ip link set lo up</span><br></pre></td></tr></table></figure></div>
+<h1 id="匹配TCP数据报"><a href="#匹配TCP数据报" class="headerlink" title="匹配TCP数据报"></a>匹配TCP数据报</h1><h2 id="TCP链接建立"><a href="#TCP链接建立" class="headerlink" title="TCP链接建立"></a>TCP链接建立</h2><p>在OVS中添加两条简单的流表项，数据报就能正常地从“left”到“right”和从“right”到“left”转发：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ ovs-ofctl add-flow br0 \</span><br><span class="line">         <span class="string">"table=0, priority=10, in_port=veth_l0, actions=veth_r0"</span></span><br><span class="line"></span><br><span class="line">$ ovs-ofctl add-flow br0 \</span><br><span class="line">         <span class="string">"table=0, priority=10, in_port=veth_r0, actions=veth_l0"</span></span><br></pre></td></tr></table></figure></p>
+<p>在下面的实验中，被添加的流表项是能识别TCP报文状态的流表项，而不是上面的这两条。</p>
+<p>在试验中，TCP握手阶段的报文，即：syn,syn-ack和ack，将在“left”网络空间的主机（IP 192.168.0.2）和在“right”网络空间的主机（IP 10.0.0.2) 间发送。</p>
+<p>首先，在OVS中添加跟踪数据报的流表项。</p>
+<p><em>如何跟踪一个数据报</em></p>
+<p>为了能够跟踪一个数据报，必须令其与一个包含“ct”动作的流表项匹配。“ct”动作会将数据报转给链接跟踪模块（the connection tracker）处理。为了能够识别出一个数据报是未被跟踪过（untracked）的，流表项中的ct_state字段必须设置为“-trk”，也就是说被匹配的数据报是未被跟踪过的数据报。一旦数据报被发送给链接跟踪模块（the connection tracker），我们就开始明确知道链接的状态了。（例如：这个数据报是一个新的链接，或者这个数据报属于一个已经存在的链接，或者是一个畸形数据报，等等）。</p>
+<p>下面，看一下这样的流表项长什么样:<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">(flow <span class="comment">#1)</span></span><br><span class="line">$ ovs-ofctl add-flow br0 \</span><br><span class="line">   <span class="string">"table=0, priority=50, ct_state=-trk, tcp, in_port=veth_l0, actions=ct(table=0)"</span></span><br></pre></td></tr></table></figure></p>
+<p>从“left”网络空间被发送的TCP syn数据报文与flow #1匹配，因为，其从veth_l0端口发出并且它没有被跟踪过。（当数据报到达OVS时，所有的第一次被OVS接收的数据报文都是“未被跟踪”的（untracked））由于流表项的操作是“ct”，所以数据报被发送到链接跟踪模块（the connection tracker）。实际上，在执行“ct”动作的过程中，“table=0”被复制成两个。原始的数据报作为未被跟踪的数据报在当前的动作流水线中继续处理。（因为当前没有其他的操作，原始的数据报被丢弃。）被复制的数据报被发送到链接跟踪模块，这些数据报会重新回到Openflow流水线中触发后续的处理，但是这些数据报中的ct_state和其他的ct字段被置位。也就是说，带有ct_state和其它的ct字段的数据报从table=0开始被重新处理。</p>
+<p>接下来，添加一个匹配从链接跟踪模块发送的数据报的流表项：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">(flow <span class="comment">#2)</span></span><br><span class="line">$ ovs-ofctl add-flow br0 \</span><br><span class="line">    <span class="string">"table=0, priority=50, ct_state=+trk,+new, tcp, in_port=veth_l0, actions=ct(commit),veth_r0"</span></span><br></pre></td></tr></table></figure></p>
+<p>既然数据报是从链接跟踪模块转发过来的，其ct_state字段被设置为“trk”。同样，如果这是TCP链接的第一个数据报，字段ct_state被设置为“new”。（现在的状态是，在主机192.168.0.2和10.0.0.2间不存在TCP链接）。ct动作的参数“commit”将把该链接提交给链接跟踪模块。这个操作把链接的信息存储到流水线上。<br>下面在“left”网络空间的scapy会话中，使用scapy发送一个TCP syn数据报文<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ &gt;&gt;&gt; sendp(Ether()/IP(src=<span class="string">"192.168.0.2"</span>, dst=<span class="string">"10.0.0.2"</span>)/TCP(sport=1024, dport=2048, flags=0x02, seq=100), iface=<span class="string">"veth_l1"</span>)</span><br></pre></td></tr></table></figure></p>
+<p>这个数据报报与flow #1和flow #2匹配。<br>链接跟踪模块现在包含匹配这个链接的表项<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ ovs-appctl dpctl/dump-conntrack | grep <span class="string">"192.168.0.2"</span></span><br><span class="line">tcp,orig=(src=192.168.0.2,dst=10.0.0.2,sport=1024,dport=2048),reply=(src=10.0.0.2,dst=192.168.0.2,sport=2048,dport=1024),protoinfo=(state=SYN_SENT)</span><br></pre></td></tr></table></figure></p>
+<div class="note default"><p>注意：<br>在这个阶段中，如果TCP syn数据报文被重传，它将再次匹配flow #1（一个新的数据报是“untracked”）， 并且它也将匹配flow #2。之所以与flow #2匹配是因为，此时链路的状态还没有转移到“已连接”（established state），因此，其状态为“new”。</p></div>
+<p>接下来，在OVS中添加下面的流表项，处理从相反的方向/服务器端发送的syn-ack TCP数据报。<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">(flow <span class="comment">#3)</span></span><br><span class="line">$ ovs-ofctl add-flow br0 \</span><br><span class="line">    <span class="string">"table=0, priority=50, ct_state=-trk, tcp, in_port=veth_r0, actions=ct(table=0)"</span></span><br><span class="line">(flow <span class="comment">#4)</span></span><br><span class="line">$ ovs-ofctl add-flow br0 \</span><br><span class="line">    <span class="string">"table=0, priority=50, ct_state=+trk,+est, tcp, in_port=veth_r0, actions=veth_l0"</span></span><br></pre></td></tr></table></figure></p>
+<p>从服务器（10.0.0.2）发送的回应消息被flow #3捕获，然后被发送到链接跟踪模块。（或者，把flow #1和flow #3中的in_port字段去掉，它们就被合并为一个流表项。）</p>
+<p>从链接跟踪模块返回到OVS的syn-ack数据报的ct_state字段被设置为“est”。</p>
+<div class="note default"><p>注意：<br>当链路跟踪模块发现双向的通信后，链接的ct_state字段就会被设置为“est”。但是，此时由于还没有发现从客户端发出的ack数据报，它链路的跟踪项上设置了一个定时器，该定时器超时时，将清理该链接。</p></div>
+<p>使用scapy发送syn-ack数据报的命令（flag=0x12标识该数据报的ack和syn字段置位）<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ &gt;&gt;&gt; sendp(Ether()/IP(src=<span class="string">"10.0.0.2"</span>, dst=<span class="string">"192.168.0.2"</span>)/TCP(sport=2048, dport=1024, flags=0x12, seq=200, ack=101), iface=<span class="string">"veth_r1"</span>)</span><br></pre></td></tr></table></figure></p>
+<p>上面的数据报将被flow #3和flow #4捕获</p>
+<p>链路跟踪模块中相应的记录如下：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">$ ovs-appctl dpctl/dump-conntrack | grep <span class="string">"192.168.0.2"</span></span><br><span class="line"></span><br><span class="line">tcp,orig=(src=192.168.0.2,dst=10.0.0.2,sport=1024,dport=2048),reply=(src=10.0.0.2,dst=192.168.0.2,sport=2048,dport=1024),protoinfo=(state=ESTABLISHED)</span><br><span class="line">``` </span><br><span class="line">在捕获syn和syn-ack数据报后，链路的状态为“ESTABLISHED”。此后，如果在一个较短的时间内没有收到客户端的ack数据报，该链接将会被清除。</span><br><span class="line"></span><br><span class="line">接下来，添加如下的流表项，捕获从客户端发出的ack数据报：</span><br><span class="line">``` bash</span><br><span class="line">(flow <span class="comment">#5)</span></span><br><span class="line">$ ovs-ofctl add-flow br0 \</span><br><span class="line">    <span class="string">"table=0, priority=50, ct_state=+trk,+est, tcp, in_port=veth_l0, actions=veth_r0"</span></span><br></pre></td></tr></table></figure></p>
+<p>在客户端（即网络空间“left”的scapy会话中）发送TCP的ack数据报（flags=0x10标识ack字段置位）：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ &gt;&gt;&gt; sendp(Ether()/IP(src=<span class="string">"192.168.0.2"</span>, dst=<span class="string">"10.0.0.2"</span>)/TCP(sport=1024, dport=2048, flags=0x10, seq=101, ack=201), iface=<span class="string">"veth_l1"</span>)</span><br></pre></td></tr></table></figure></p>
+<p>上面的数据报，将被flow #1和flow #5捕获。</p>
+<p>链接跟踪模块中的表项：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ ovs-appctl dpctl/dump-conntrack | grep <span class="string">"192.168.0.2"</span></span><br><span class="line"></span><br><span class="line"> tcp,orig=(src=192.168.0.2,dst=10.0.0.2,sport=1024,dport=2048), \</span><br><span class="line">     reply=(src=10.0.0.2,dst=192.168.0.2,sport=2048,dport=1024), \</span><br><span class="line">                                     protoinfo=(state=ESTABLISHED)</span><br></pre></td></tr></table></figure></p>
+<p>此时链路的状态还维持在“ESTABLISHED”。但是，现在已经收到了客户端的ack数据报，该链路将一直保持在这个状态，即使这个链路上没有任何的数据传输。</p>
+<h1 id="TCP数据流"><a href="#TCP数据流" class="headerlink" title="TCP数据流"></a>TCP数据流</h1><p>当一个载有数据的TCP报文，即网络报文中包含一个字节的TCP负荷，被从192.168.0.2发送到10.0.0.2时，其将被flow #1和flow #5捕获。<br>在网络空间“left”中的scapy会话中，发送载有一个字节数据的TCP报文（flags=0x10标识ack字段置位）：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ &gt;&gt;&gt; sendp(Ether()/IP(src=<span class="string">"192.168.0.2"</span>, dst=<span class="string">"10.0.0.2"</span>)/TCP(sport=1024, dport=2048, flags=0x10, seq=101, ack=201)/<span class="string">"X"</span>, iface=<span class="string">"veth_l1"</span>)</span><br></pre></td></tr></table></figure></p>
+<p>在网络空间“right”中的scapy会话中，发送上面的TCP报文的ack报文（flags=0x10标识ack字段置位）<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ &gt;&gt;&gt; sendp(Ether()/IP(src=<span class="string">"10.0.0.2"</span>, dst=<span class="string">"192.168.0.2"</span>)/TCP(sport=2048, dport=1024, flags=0X10, seq=201, ack=102), iface=<span class="string">"veth_r1"</span>)</span><br></pre></td></tr></table></figure></p>
+<p>数据接收的确认消息会被flow #3和flow #4捕获。</p>
+<h1 id="TCP链接断开"><a href="#TCP链接断开" class="headerlink" title="TCP链接断开"></a>TCP链接断开</h1><p>断开TCP链接的方法有很多。本文采用首先从客户端发送数据报“fin”，然后从服务端回应“fin-ack”报文，最后客户端回应“ack”报文的方式。<br>所有的数据报文从客户端到服务端都将被flow #1和flow #5捕获。同样，所有从服务端到客户端的报文都被flow #3和flow #4捕获。值得注意的是，在链接断开过程中，所有的数据报文都处于“+est”状态。数据报文，<br><div class="note default"><p>注意：<br>事实上，当被跟踪的链接的状态为“TIME_WAIT”时（此时，所有的TCP的fin报文和它们的ack报文都已经交换完成），一个被重传的数据报文（从192.168.0.2到10.0.0.2），仍然会被flow #1和flow #5捕获。</p></div><br>在网络空间“left”中的scapy会话中，发送TCP的fin报文（flags=0x11标识报文中的ack和fin字段被置位）<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ &gt;&gt;&gt; sendp(Ether()/IP(src=<span class="string">"192.168.0.2"</span>, dst=<span class="string">"10.0.0.2"</span>)/TCP(sport=1024, dport=2048, flags=0x11, seq=102, ack=201), iface=<span class="string">"veth_l1"</span>)</span><br></pre></td></tr></table></figure></p>
+<p>上面的报文被flow #1和flow #5捕获。</p>
+<p>链接跟踪模块中对应的表项：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ sudo ovs-appctl dpctl/dump-conntrack | grep <span class="string">"192.168.0.2"</span></span><br><span class="line"></span><br><span class="line">  tcp,orig=(src=192.168.0.2,dst=10.0.0.2,sport=1024,dport=2048),reply=(src=10.0.0.2,dst=192.168.0.2,sport=2048,dport=1024),protoinfo=(state=FIN_WAIT_1)</span><br></pre></td></tr></table></figure></p>
+<p>在网络空间“right”中的scapy会话中，发送TCP的fin-ack报文（flags=0x11标识报文中的ack和fin字段被置位）<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ &gt;&gt;&gt; sendp(Ether()/IP(src=<span class="string">"10.0.0.2"</span>, dst=<span class="string">"192.168.0.2"</span>)/TCP(sport=2048, dport=1024, flags=0X11, seq=201, ack=103), iface=<span class="string">"veth_r1"</span>)</span><br></pre></td></tr></table></figure></p>
+<p>上面的报文将被flow #3和flow #4捕获。</p>
+<p>链接跟踪模块中对应的表项：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ sudo ovs-appctl dpctl/dump-conntrack | grep <span class="string">"192.168.0.2"</span></span><br><span class="line"></span><br><span class="line">  tcp,orig=(src=192.168.0.2,dst=10.0.0.2,sport=1024,dport=2048),reply=(src=10.0.0.2,dst=192.168.0.2,sport=2048,dport=1024),protoinfo=(state=LAST_ACK)</span><br></pre></td></tr></table></figure></p>
+<p>在网络空间“left”中的scapy会话中发送TCP的ack报文（flags=0x10标识报文的ack字段被置位）<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ &gt;&gt;&gt; sendp(Ether()/IP(src=<span class="string">"192.168.0.2"</span>, dst=<span class="string">"10.0.0.2"</span>)/TCP(sport=1024, dport=2048, flags=0x10, seq=103, ack=202), iface=<span class="string">"veth_l1"</span>)</span><br></pre></td></tr></table></figure></p>
+<p>上面的报文被flow #1和flow #5捕获。</p>
+<p>链接跟踪模块中对应的表项：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ sudo ovs-appctl dpctl/dump-conntrack | grep <span class="string">"192.168.0.2"</span></span><br><span class="line"></span><br><span class="line">  tcp,orig=(src=192.168.0.2,dst=10.0.0.2,sport=1024,dport=2048),reply=(src=10.0.0.2,dst=192.168.0.2,sport=2048,dport=1024),protoinfo=(state=TIME_WAIT)</span><br></pre></td></tr></table></figure></p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>下表总结了TCP的报文与flow表项中的字段的对应关系。<br><img src="/2018/04/22/ovs-conntrack-tutorial/conntrack-summary.png"></p>
+<div class="note default"><p>注意：<br>相对的序列号和确认号是按照tshark的方式来标识的。</p></div>
+<h1 id="流表项"><a href="#流表项" class="headerlink" title="流表项"></a>流表项</h1><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"> (flow <span class="comment">#1)</span></span><br><span class="line"> $ ovs-ofctl add-flow br0 \</span><br><span class="line">    <span class="string">"table=0, priority=50, ct_state=-trk, tcp, in_port=veth_l0, actions=ct(table=0)"</span></span><br><span class="line"></span><br><span class="line">(flow <span class="comment">#2)</span></span><br><span class="line">$ ovs-ofctl add-flow br0 \</span><br><span class="line">    <span class="string">"table=0, priority=50, ct_state=+trk,+new, tcp, in_port=veth_l0, actions=ct(commit),veth_r0"</span></span><br><span class="line"></span><br><span class="line">(flow <span class="comment">#3)</span></span><br><span class="line">$ ovs-ofctl add-flow br0 \</span><br><span class="line">    <span class="string">"table=0, priority=50, ct_state=-trk, tcp, in_port=veth_r0, actions=ct(table=0)"</span></span><br><span class="line"></span><br><span class="line">(flow <span class="comment">#4)</span></span><br><span class="line">$ ovs-ofctl add-flow br0 \</span><br><span class="line">    <span class="string">"table=0, priority=50, ct_state=+trk,+est, tcp, in_port=veth_r0, actions=veth_l0"</span></span><br><span class="line"></span><br><span class="line">(flow <span class="comment">#5)</span></span><br><span class="line">$ ovs-ofctl add-flow br0 \</span><br><span class="line">    <span class="string">"table=0, priority=50, ct_state=+trk,+est, tcp, in_port=veth_l0, actions=veth_r0"</span></span><br></pre></td></tr></table></figure>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/openvswitch/" rel="tag"># openvswitch</a>
+          
+            <a href="/tags/connection-track/" rel="tag"># connection track</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2018/04/17/ovs-on-hyperv-design/" rel="next" title="OVS在Hyper-V平台上的设计原则">
+                <i class="fa fa-chevron-left"></i> OVS在Hyper-V平台上的设计原则
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+      
+        <div id="gitment-container"></div>
+      
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">xiaohutou</p>
+              <p class="site-description motion-element" itemprop="description">有志 有识 有恒</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">5</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">10</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+
+          
+
+          
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#OpenvSwitch的链接追踪教程"><span class="nav-number">1.</span> <span class="nav-text">OpenvSwitch的链接追踪教程</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#术语"><span class="nav-number">2.</span> <span class="nav-text">术语</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#链接跟踪（conntrack）"><span class="nav-number">2.1.</span> <span class="nav-text">链接跟踪（conntrack）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#流水线（pipeline）"><span class="nav-number">2.2.</span> <span class="nav-text">流水线（pipeline）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#网络命名空间（network-namespace）："><span class="nav-number">2.3.</span> <span class="nav-text">网络命名空间（network namespace）：</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#流表项（flow）"><span class="nav-number">2.4.</span> <span class="nav-text">流表项（flow）:</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#相关字段"><span class="nav-number">3.</span> <span class="nav-text">相关字段</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#匹配字段"><span class="nav-number">3.1.</span> <span class="nav-text">匹配字段</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#动作（Actions）"><span class="nav-number">3.2.</span> <span class="nav-text">动作（Actions）</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#示例的拓扑结构（Sample-Topology）"><span class="nav-number">4.</span> <span class="nav-text">示例的拓扑结构（Sample Topology）</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Tool-used-to-generate-TCP-segments"><span class="nav-number">5.</span> <span class="nav-text">Tool used to generate TCP segments</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#匹配TCP数据报"><span class="nav-number">6.</span> <span class="nav-text">匹配TCP数据报</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#TCP链接建立"><span class="nav-number">6.1.</span> <span class="nav-text">TCP链接建立</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#TCP数据流"><span class="nav-number">7.</span> <span class="nav-text">TCP数据流</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#TCP链接断开"><span class="nav-number">8.</span> <span class="nav-text">TCP链接断开</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#总结"><span class="nav-number">9.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#流表项"><span class="nav-number">10.</span> <span class="nav-text">流表项</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2018</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">xiaohutou</span>
+
+  
+
+  
+</div>
+
+
+
+
+  <div class="powered-by">由 <a class="theme-link" target="_blank" href="https://hexo.io">Hexo</a> 强力驱动 v3.7.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 &mdash; <a class="theme-link" target="_blank" href="https://github.com/theme-next/hexo-theme-next">NexT.Gemini</a> v6.2.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=6.2.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=6.2.0"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=6.2.0"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=6.2.0"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=6.2.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=6.2.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=6.2.0"></script>
+
+
+
+  
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+<!-- LOCAL: You can save these files to your site and update links -->
+    
+        
+        <link rel="stylesheet" href="https://aimingoo.github.io/gitmint/style/default.css">
+        <script src="https://aimingoo.github.io/gitmint/dist/gitmint.browser.js"></script>
+    
+<!-- END LOCAL -->
+
+    
+
+    
+      <script type="text/javascript">
+      function renderGitment(){
+        var gitment = new Gitmint({
+            id: window.location.pathname,
+            owner: 'xiaohutou',
+            repo: 'xiaohutou.github.io',
+            
+            lang: "" || navigator.language || navigator.systemLanguage || navigator.userLanguage,
+            
+            oauth: {
+            
+            
+                client_secret: '67f5892dc03fd6d49a5c95713a520d93077da765',
+            
+                client_id: '649abcb8a6b6f2bbc68b'
+            }});
+        gitment.render('gitment-container');
+      }
+
+      
+      renderGitment();
+      
+      </script>
+    
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+  
+
+  
+
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
