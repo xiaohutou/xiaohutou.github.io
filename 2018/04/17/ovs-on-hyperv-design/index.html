@@ -107,12 +107,12 @@
 <meta property="og:site_name" content="小虎头 加油">
 <meta property="og:description" content="原文 OVS-on-Hyper-V Design 声明：  本译文并未取得原作者授权，如有侵权行为，请发邮件到13581561959@163.com。我将立即删除。 翻译中，意译的地方较多。如有错误，或不准确的地方，欢迎邮件讨论，谢谢。  本文将详细说明Open vSwitch是如何在Microsoft的hyper-v平台上开发的。这些信息将帮助您理解整体的设计。Note：用户空间程序也已经被到了">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:image" content="http://yoursite.com/2018/04/17/ovs-on-hyperv-design/OVS-windows.png">
-<meta property="og:updated_time" content="2018-04-26T23:37:04.490Z">
+<meta property="og:image" content="http://yoursite.com/2018/04/17/ovs-on-hyperv-design/ovs_windows.png">
+<meta property="og:updated_time" content="2018-04-26T23:50:44.633Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="OVS在Hyper-V平台上的设计原则">
 <meta name="twitter:description" content="原文 OVS-on-Hyper-V Design 声明：  本译文并未取得原作者授权，如有侵权行为，请发邮件到13581561959@163.com。我将立即删除。 翻译中，意译的地方较多。如有错误，或不准确的地方，欢迎邮件讨论，谢谢。  本文将详细说明Open vSwitch是如何在Microsoft的hyper-v平台上开发的。这些信息将帮助您理解整体的设计。Note：用户空间程序也已经被到了">
-<meta name="twitter:image" content="http://yoursite.com/2018/04/17/ovs-on-hyperv-design/OVS-windows.png">
+<meta name="twitter:image" content="http://yoursite.com/2018/04/17/ovs-on-hyperv-design/ovs_windows.png">
 
 
 
@@ -344,7 +344,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2018-04-27 08:37:04" itemprop="dateModified" datetime="2018-04-27T08:37:04+09:00">2018-04-27</time>
+                <time title="修改时间：2018-04-27 08:50:44" itemprop="dateModified" datetime="2018-04-27T08:50:44+09:00">2018-04-27</time>
               
             
           </span>
@@ -405,7 +405,7 @@
 <p>在Hyper-V平台上，虚拟机被称为子工作区（Child Partition）。每一个虚拟网络接口或物理网卡通过一个端口（port）连接到虚拟交换机上。上行路径（ingress path）是指数据报从端口被发送出去；下行路径是指数据报在一个端口上被接收。NDIS驱动框架采用了分层接口（a layered interface）的设计模式。在这个分层接口的设计模式中，上行路径中，高层的接口调用其下一层的接口。在下行路径中，则与之相反。另外，控制操作是通过对象标识（OID，object identifier）接口完成的，例如，添加一个端口（port）。这些控制操作的工作流程与数据报的操作一样，高层接口调用底层接口。<a href="https://msdn.microsoft.com/windows/hardware/drivers/network/hyper-v-extensible-switch-components" target="_blank" rel="noopener">Hyper-V Extensible Switch Components</a>中有这方面的详尽的示例图片。</p>
 <p>Windows过滤平台（Windows Filtering Platform，WFP）提供了用于过滤数据报的APIs和服务。OVS使用WFP处理一些不能直接处理的数据报。后面将就该问题详细说明。</p>
 <p>Hyper-V提供了一组用户获取主机的网络配置信息的接口，被称为IP Helpler。OVS使用这些接口获得必要的网络配置信息。<br><a id="more"></a></p>
-<h1 id="设计"><a href="#设计" class="headerlink" title="设计"></a>设计</h1><img src="/2018/04/17/ovs-on-hyperv-design/OVS-windows.png" title="图1. Various blocks of the OVS Windows implementation">
+<h1 id="设计"><a href="#设计" class="headerlink" title="设计"></a>设计</h1><img src="/2018/04/17/ovs-on-hyperv-design/ovs_windows.png" title="图1. Various blocks of the OVS Windows implementation">
 <p>上图中，包括了Windows平台上的OVS的各个模块（datapath、ovs-vswitchd和用户空间工具），NDIS驱动栈的相关模块，和虚拟机，以及它们之间的交互。从图中，可以看出一个数据包如何从一个虚拟接口被传输到另一个虚拟接口或物理网卡的。在本节稍后的部分，会从更高的层面阐述数据流。</p>
 <p>通过该图，读者对于OVS的用户空间和内核组件有一个整体的认识，并且了解到它们是如何交互的。</p>
 <p>在Hyper-V平台上，OVS的内核模块（datapath0）是一个转发扩展NDIS驱动，主要实现了下面的子模块/功能。关于它们的详细说明将在下面的部分说明。</p>
