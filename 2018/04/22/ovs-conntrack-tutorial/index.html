@@ -107,13 +107,13 @@
 <meta property="og:site_name" content="小虎头 加油">
 <meta property="og:description" content="原文 OVS Conntrack Tutorial 声明：  本译文并未取得原作者授权，如有侵权行为，请发邮件到13581561959@163.com。我将立即删除。 翻译中，意译的地方较多。如有错误，或不准确的地方，欢迎邮件讨论，谢谢。  OpenvSwitch的链接追踪教程OVS能够与链接跟踪系统共同工作，此时Openflow流表被用于捕获TCP、UDP、ICMP等链接各种状态下的报文。（链接">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:image" content="http://yoursite.com/2018/04/22/ovs-conntrack-tutorial/sample-topology.png">
-<meta property="og:image" content="http://yoursite.com/2018/04/22/ovs-conntrack-tutorial/conntrack-summary.png">
-<meta property="og:updated_time" content="2018-04-26T22:10:54.190Z">
+<meta property="og:image" content="http://yoursite.com/2018/04/22/ovs-conntrack-tutorial/sample-topology.PNG">
+<meta property="og:image" content="http://yoursite.com/2018/04/22/ovs-conntrack-tutorial/conntrack-summary.PNG">
+<meta property="og:updated_time" content="2018-04-27T00:03:17.780Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="OpenvSwitch的链接追踪教程">
 <meta name="twitter:description" content="原文 OVS Conntrack Tutorial 声明：  本译文并未取得原作者授权，如有侵权行为，请发邮件到13581561959@163.com。我将立即删除。 翻译中，意译的地方较多。如有错误，或不准确的地方，欢迎邮件讨论，谢谢。  OpenvSwitch的链接追踪教程OVS能够与链接跟踪系统共同工作，此时Openflow流表被用于捕获TCP、UDP、ICMP等链接各种状态下的报文。（链接">
-<meta name="twitter:image" content="http://yoursite.com/2018/04/22/ovs-conntrack-tutorial/sample-topology.png">
+<meta name="twitter:image" content="http://yoursite.com/2018/04/22/ovs-conntrack-tutorial/sample-topology.PNG">
 
 
 
@@ -345,7 +345,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2018-04-27 07:10:54" itemprop="dateModified" datetime="2018-04-27T07:10:54+09:00">2018-04-27</time>
+                <time title="修改时间：2018-04-27 09:03:17" itemprop="dateModified" datetime="2018-04-27T09:03:17+09:00">2018-04-27</time>
               
             
           </span>
@@ -441,7 +441,7 @@
 <li><p>nat: 为被跟踪的链接指明地址和端口翻译。</p>
 </li>
 </ol>
-<h1 id="示例的拓扑结构（Sample-Topology）"><a href="#示例的拓扑结构（Sample-Topology）" class="headerlink" title="示例的拓扑结构（Sample Topology）"></a>示例的拓扑结构（Sample Topology）</h1><p>本文在下面的拓扑结构上演示链路跟踪。<br><img src="/2018/04/22/ovs-conntrack-tutorial/sample-topology.png" title="图1.Diagram: Sample Topology for conntrack testing"></p>
+<h1 id="示例的拓扑结构（Sample-Topology）"><a href="#示例的拓扑结构（Sample-Topology）" class="headerlink" title="示例的拓扑结构（Sample Topology）"></a>示例的拓扑结构（Sample Topology）</h1><p>本文在下面的拓扑结构上演示链路跟踪。<br><img src="/2018/04/22/ovs-conntrack-tutorial/sample-topology.PNG" title="图1.Diagram: Sample Topology for conntrack testing"></p>
 <p>接下来，创建上图所示的网络。<br>创建网络命名空间“left”:<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ ip netns add left</span><br></pre></td></tr></table></figure></p>
 <p>创建网络命名空间“right”<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ ip netns add right</span><br></pre></td></tr></table></figure></p>
 <p>创建第一组veth虚拟网络接口：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ ip link add veth_l0 <span class="built_in">type</span> veth peer name veth_l1</span><br></pre></td></tr></table></figure></p>
@@ -490,7 +490,7 @@
 <p>在网络空间“left”中的scapy会话中发送TCP的ack报文（flags=0x10标识报文的ack字段被置位）<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ &gt;&gt;&gt; sendp(Ether()/IP(src=<span class="string">"192.168.0.2"</span>, dst=<span class="string">"10.0.0.2"</span>)/TCP(sport=1024, dport=2048, flags=0x10, seq=103, ack=202), iface=<span class="string">"veth_l1"</span>)</span><br></pre></td></tr></table></figure></p>
 <p>上面的报文被flow #1和flow #5捕获。</p>
 <p>链接跟踪模块中对应的表项：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ sudo ovs-appctl dpctl/dump-conntrack | grep <span class="string">"192.168.0.2"</span></span><br><span class="line"></span><br><span class="line">  tcp,orig=(src=192.168.0.2,dst=10.0.0.2,sport=1024,dport=2048),reply=(src=10.0.0.2,dst=192.168.0.2,sport=2048,dport=1024),protoinfo=(state=TIME_WAIT)</span><br></pre></td></tr></table></figure></p>
-<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>下表总结了TCP的报文与flow表项中的字段的对应关系。<br><img src="/2018/04/22/ovs-conntrack-tutorial/conntrack-summary.png"></p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>下表总结了TCP的报文与flow表项中的字段的对应关系。<br><img src="/2018/04/22/ovs-conntrack-tutorial/conntrack-summary.PNG"></p>
 <div class="note default"><p>注意：<br>相对的序列号和确认号是按照tshark的方式来标识的。</p></div>
 <h1 id="流表项"><a href="#流表项" class="headerlink" title="流表项"></a>流表项</h1><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"> (flow <span class="comment">#1)</span></span><br><span class="line"> $ ovs-ofctl add-flow br0 \</span><br><span class="line">    <span class="string">"table=0, priority=50, ct_state=-trk, tcp, in_port=veth_l0, actions=ct(table=0)"</span></span><br><span class="line"></span><br><span class="line">(flow <span class="comment">#2)</span></span><br><span class="line">$ ovs-ofctl add-flow br0 \</span><br><span class="line">    <span class="string">"table=0, priority=50, ct_state=+trk,+new, tcp, in_port=veth_l0, actions=ct(commit),veth_r0"</span></span><br><span class="line"></span><br><span class="line">(flow <span class="comment">#3)</span></span><br><span class="line">$ ovs-ofctl add-flow br0 \</span><br><span class="line">    <span class="string">"table=0, priority=50, ct_state=-trk, tcp, in_port=veth_r0, actions=ct(table=0)"</span></span><br><span class="line"></span><br><span class="line">(flow <span class="comment">#4)</span></span><br><span class="line">$ ovs-ofctl add-flow br0 \</span><br><span class="line">    <span class="string">"table=0, priority=50, ct_state=+trk,+est, tcp, in_port=veth_r0, actions=veth_l0"</span></span><br><span class="line"></span><br><span class="line">(flow <span class="comment">#5)</span></span><br><span class="line">$ ovs-ofctl add-flow br0 \</span><br><span class="line">    <span class="string">"table=0, priority=50, ct_state=+trk,+est, tcp, in_port=veth_l0, actions=veth_r0"</span></span><br></pre></td></tr></table></figure>
 
