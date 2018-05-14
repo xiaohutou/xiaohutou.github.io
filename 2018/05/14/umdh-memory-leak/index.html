@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2"/>
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=6.2.0" rel="stylesheet" type="text/css" />
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.2.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.2.0" color="#222">
+
+
+
+
+
+
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.2.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="原创，欢迎转载，请注明出处 前言最近在Windows平台上扩展ovs-vswitchd的功能时，遇到了内存泄漏的问题。查阅windbg的文档，使用UMDH工具解决。特此记录一下。本文使用的工具随EWDK_rs3_release_16299_170928-1534开发套件发行，VS是否带有该工具请自行查阅。本文提及的工具在EWDK的安装目录的“Program Files\Windows Kits\1">
+<meta name="keywords" content="UMDH,内存泄漏,原创">
+<meta property="og:type" content="article">
+<meta property="og:title" content="windows平台使用UMDH工具检测内存泄漏">
+<meta property="og:url" content="http://yoursite.com/2018/05/14/umdh-memory-leak/index.html">
+<meta property="og:site_name" content="小虎头 加油">
+<meta property="og:description" content="原创，欢迎转载，请注明出处 前言最近在Windows平台上扩展ovs-vswitchd的功能时，遇到了内存泄漏的问题。查阅windbg的文档，使用UMDH工具解决。特此记录一下。本文使用的工具随EWDK_rs3_release_16299_170928-1534开发套件发行，VS是否带有该工具请自行查阅。本文提及的工具在EWDK的安装目录的“Program Files\Windows Kits\1">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2018-05-14T17:10:15.403Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="windows平台使用UMDH工具检测内存泄漏">
+<meta name="twitter:description" content="原创，欢迎转载，请注明出处 前言最近在Windows平台上扩展ovs-vswitchd的功能时，遇到了内存泄漏的问题。查阅windbg的文档，使用UMDH工具解决。特此记录一下。本文使用的工具随EWDK_rs3_release_16299_170928-1534开发套件发行，VS是否带有该工具请自行查阅。本文提及的工具在EWDK的安装目录的“Program Files\Windows Kits\1">
+
+
+
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2018/05/14/umdh-memory-leak/"/>
+
+
+
+<script type="text/javascript" id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>windows平台使用UMDH工具检测内存泄漏 | 小虎头 加油</title>
+  
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style type="text/css">
+    .use-motion .motion-element,
+    .use-motion .brand,
+    .use-motion .menu-item,
+    .sidebar-inner,
+    .use-motion .post-block,
+    .use-motion .pagination,
+    .use-motion .comments,
+    .use-motion .post-header,
+    .use-motion .post-body,
+    .use-motion .collection-title { opacity: initial; }
+
+    .use-motion .logo,
+    .use-motion .site-title,
+    .use-motion .site-subtitle {
+      opacity: initial;
+      top: initial;
+    }
+
+    .use-motion {
+      .logo-line-before i { left: initial; }
+      .logo-line-after i { right: initial; }
+    }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">小虎头 加油</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle">老兵不死，之渐凋零</p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+    <a href="/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-home"></i> <br />首页</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+    <a href="/tags/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />标签</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+    <a href="/archives/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />归档</a>
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/05/14/umdh-memory-leak/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="xiaohutou">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="小虎头 加油">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">windows平台使用UMDH工具检测内存泄漏
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2018-05-14 21:20:30" itemprop="dateCreated datePublished" datetime="2018-05-14T21:20:30+09:00">2018-05-14</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2018-05-15 02:10:15" itemprop="dateModified" datetime="2018-05-15T02:10:15+09:00">2018-05-15</time>
+              
+            
+          </span>
+
+          
+
+          
+            
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+                <a href="/2018/05/14/umdh-memory-leak/#comments" itemprop="discussionUrl">
+                  <span class="post-meta-item-text">评论数：</span> <span class="post-comments-count gitment-comments-count" data-xid="/2018/05/14/umdh-memory-leak/" itemprop="commentsCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <div class="note primary"><p>原创，欢迎转载，请注明出处</p></div>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>最近在Windows平台上扩展ovs-vswitchd的功能时，遇到了内存泄漏的问题。查阅windbg的文档，使用UMDH工具解决。特此记录一下。<br><div class="note "><p>本文使用的工具随EWDK_rs3_release_16299_170928-1534开发套件发行，VS是否带有该工具请自行查阅。本文提及的工具在EWDK的安装目录的“Program Files\Windows Kits\10\Debuggers\x64\”文件夹中。本文的操作都是在控制台下执行的。默认系统的PATH变量中不包含这些命令所在的目录，请自行添加或执行命令时输入全路径。</p></div></p>
+<h1 id="准备"><a href="#准备" class="headerlink" title="准备"></a>准备</h1><h2 id="创建用户空间程序栈跟踪数据库（Create-user-mode-stack-trace-database）"><a href="#创建用户空间程序栈跟踪数据库（Create-user-mode-stack-trace-database）" class="headerlink" title="创建用户空间程序栈跟踪数据库（Create user mode stack trace database）"></a>创建用户空间程序栈跟踪数据库（Create user mode stack trace database）</h2><p>使用gflags命令设置，命令格式如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&quot;&#123;EWDK安装目录&#125;\Program Files\Windows Kits\10\Debuggers\x64\gflags&quot; /i ImageName +ust</span><br></pre></td></tr></table></figure></p>
+<div class="note "><p>注意：ImageName是指被检测的程序的名称，包含扩展名。例如：glags /i main.exe +ust.</p></div>
+<h2 id="设置环境变量-NT-SYMBOL-PATH"><a href="#设置环境变量-NT-SYMBOL-PATH" class="headerlink" title="设置环境变量_NT_SYMBOL_PATH"></a>设置环境变量_NT_SYMBOL_PATH</h2><p>Windows调试工具（WinDbg, KD, CDB, NTST）通过_NT_SYMBOL_PATH查找程序的符号表。在控制台下设置该变量的语法如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">set _NT_SYMBOL_PATH=c:\myapp\symbols;srv*c:\mycache*https://msdl.microsoft.com/download/symbols</span><br></pre></td></tr></table></figure></p>
+<div class="note "><ul>
+<li>命令中的“c:\myapp\symbols”的路径中包含被检测的文件的pdb文件。</li>
+<li>set命令设置环境变量的作用范围是当前的console会话。如需，该环境变量永久有效，请使用setx命令。</li>
+</ul></div>
+<a id="more"></a>
+<h1 id="UMDH使用"><a href="#UMDH使用" class="headerlink" title="UMDH使用"></a>UMDH使用</h1><h2 id="使用UMDH收集程序的运行时信息"><a href="#使用UMDH收集程序的运行时信息" class="headerlink" title="使用UMDH收集程序的运行时信息"></a>使用UMDH收集程序的运行时信息</h2><p>命令语法如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&quot;&#123;EWDK安装目录&#125;\Program Files\Windows Kits\10\Debuggers\x64\umdh.exe&quot; -p:&#123;程序的PID&#125; -f:log0</span><br></pre></td></tr></table></figure>
+<div class="note "><p>通常UMDH命令会被执行至少两次。注意日志请使用不同的名字。</p></div>
+<h2 id="使用UMDH分析程序运行时行为"><a href="#使用UMDH分析程序运行时行为" class="headerlink" title="使用UMDH分析程序运行时行为"></a>使用UMDH分析程序运行时行为</h2><p>命令语法：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&quot;&#123;EWDK安装目录&#125;\Program Files\Windows Kits\10\Debuggers\x64\umdh.exe&quot; log0 log1</span><br></pre></td></tr></table></figure>
+<p>接下来通过一个例子看一下UMDH能给我们什么样的信息。</p>
+<h1 id="示例"><a href="#示例" class="headerlink" title="示例"></a>示例</h1><h2 id="创建一个内存泄漏程序"><a href="#创建一个内存泄漏程序" class="headerlink" title="创建一个内存泄漏程序"></a>创建一个内存泄漏程序</h2><ul>
+<li><strong>程序代码如下</strong></li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;windows.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> ARRAY_SIZE 128</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">int</span> * pointers[ARRAY_SIZE];</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">for</span>(<span class="keyword">unsigned</span> <span class="keyword">int</span> i = <span class="number">0</span>; i &lt; <span class="number">-1</span>; ++i)&#123;</span><br><span class="line">        pointers[i % ARRAY_SIZE] = <span class="built_in">malloc</span>(<span class="number">4</span>);</span><br><span class="line">        <span class="keyword">if</span>(<span class="literal">NULL</span> == pointers[i % ARRAY_SIZE])&#123;</span><br><span class="line">            <span class="built_in">printf</span>(<span class="string">"no memory available"</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        Sleep(<span class="number">1</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li><strong>编译程序的命令如下，生成的程序名为main.exe</strong></li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cl /EHsc /Zi main.c</span><br></pre></td></tr></table></figure>
+<div class="note "><p>注意编译时私用/Zi开关，生成pdb文件。该文件在分析程序行为时，被用于定位具体的代码行。</p>
+<ul>
+<li><p>/Z7<br>编译时，生成.obj文件，其包含可被调试工具使用的符号信息。</p>
+</li>
+<li><p>/Zi<br>生成程序数据文件（PDB），该文件包含可被调试工具使用的类型信息和符号信息。</p>
+</li>
+<li><p>/ZI<br>与/Zi开关的作用相似，生成PDB文件。不同的是，PDB文件的格式不同。此PDB文件支持“Edit”和“Continue”。</p>
+</li>
+</ul></div>
+<h2 id="准备工作"><a href="#准备工作" class="headerlink" title="准备工作"></a>准备工作</h2><ul>
+<li><strong>创建main.exe的栈跟踪数据库</strong></li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">glags /i main.exe +ust</span><br></pre></td></tr></table></figure>
+<ul>
+<li><strong>设置_NT_SYMBOL_PATH环境变量</strong></li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">set _NT_SYMBOL_PATH=e:\workspace\test;srv*c:\mycache*https://msdl.microsoft.com/download/symbols</span><br></pre></td></tr></table></figure>
+<div class="note "><p>“e:\workspace\test”目录下包含main.pdb文件</p></div>
+<h2 id="收集数据"><a href="#收集数据" class="headerlink" title="收集数据"></a>收集数据</h2><ul>
+<li><strong>运行main.exe</strong></li>
+</ul>
+<figure class="highlight bat"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">main.exe</span><br></pre></td></tr></table></figure>
+<ul>
+<li><strong>使用UMDH收集运行时行为</strong><br>在控制台下运行下面的命令，收集main.exe的运行时行为，记录存储到“log0”文件中</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">umdh.exe -p:2230 -f:log0</span><br></pre></td></tr></table></figure>
+<pre><code>几秒钟后，再次运行umdh收集程序行为信息，记录存储到“log1”文件中
+</code></pre><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">umdh.exe -p:2230 -f:log1</span><br></pre></td></tr></table></figure>
+<h2 id="分析数据"><a href="#分析数据" class="headerlink" title="分析数据"></a>分析数据</h2><ul>
+<li><strong>命令如下</strong></li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">umdh.exe -v log1 log0</span><br></pre></td></tr></table></figure>
+<p>命令的输出结果如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">-     988 (  1600 -  1f88)    580 allocs        BackTrace94D0588E</span><br><span class="line">-     262 (   580 -   7e2)      BackTrace94D0588E       allocations</span><br><span class="line"></span><br><span class="line">        ntdll!RtlpCallInterceptRoutine+40</span><br><span class="line">        ntdll!RtlAllocateHeap+7892C</span><br><span class="line">        main!_malloc_base+44 (minkernel\crts\ucrt\src\appcrt\heap\malloc_base.cpp, 34)</span><br><span class="line">        main!main+3E (c:\workspace\test\main.c, 11)</span><br><span class="line">        main!__scrt_common_main_seh+110 (f:\dd\vctools\crt\vcstartup\src\startup\exe_common.inl, 283)</span><br><span class="line">        KERNEL32!BaseThreadInitThunk+22</span><br><span class="line">        ntdll!RtlUserThreadStart+34</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">Total decrease ==    988 requested +   68d8 overhead =   7260</span><br></pre></td></tr></table></figure>
+<p>输出结果中的第七行指出了内存泄漏发生的位置。如果程序中不知一处有内存泄漏，则umdh会输出每一个发生内存泄漏的代码行。</p>
+<h1 id="后记-“一个空格引发的血案”"><a href="#后记-“一个空格引发的血案”" class="headerlink" title="后记 - “一个空格引发的血案”"></a>后记 - “一个空格引发的血案”</h1><p>写作过程中，由于块代码（block code）使用“```”标识的。由于块代码的结束标记“```”多了一个空格导致格式始终显示不对。预期的结果是这样：</p>
+<blockquote>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">aaa</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">bbb</span><br></pre></td></tr></table></figure>
+<blockquote>
+</blockquote>
+<p>多余的空格导致显示如下：</p>
+<blockquote>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">aaa</span><br><span class="line">``` </span><br><span class="line">```text</span><br><span class="line">bbb</span><br></pre></td></tr></table></figure>
+<blockquote>
+</blockquote>
+<p>经验不足，这个问题花了较长的时间才解决。</p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/UMDH/" rel="tag"># UMDH</a>
+          
+            <a href="/tags/内存泄漏/" rel="tag"># 内存泄漏</a>
+          
+            <a href="/tags/原创/" rel="tag"># 原创</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2018/05/13/ubuntu16-libvirt-call-ovsvsctl-denied/" rel="next" title="ubuntu16.04 下libvirtd调用ovs-vsctl被apparmor拒绝">
+                <i class="fa fa-chevron-left"></i> ubuntu16.04 下libvirtd调用ovs-vsctl被apparmor拒绝
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+      
+        <div id="gitment-container"></div>
+      
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">xiaohutou</p>
+              <p class="site-description motion-element" itemprop="description">有志 有识 有恒</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">8</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">13</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+
+          
+
+          
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#准备"><span class="nav-number">2.</span> <span class="nav-text">准备</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#创建用户空间程序栈跟踪数据库（Create-user-mode-stack-trace-database）"><span class="nav-number">2.1.</span> <span class="nav-text">创建用户空间程序栈跟踪数据库（Create user mode stack trace database）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#设置环境变量-NT-SYMBOL-PATH"><span class="nav-number">2.2.</span> <span class="nav-text">设置环境变量_NT_SYMBOL_PATH</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#UMDH使用"><span class="nav-number">3.</span> <span class="nav-text">UMDH使用</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#使用UMDH收集程序的运行时信息"><span class="nav-number">3.1.</span> <span class="nav-text">使用UMDH收集程序的运行时信息</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#使用UMDH分析程序运行时行为"><span class="nav-number">3.2.</span> <span class="nav-text">使用UMDH分析程序运行时行为</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#示例"><span class="nav-number">4.</span> <span class="nav-text">示例</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#创建一个内存泄漏程序"><span class="nav-number">4.1.</span> <span class="nav-text">创建一个内存泄漏程序</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#准备工作"><span class="nav-number">4.2.</span> <span class="nav-text">准备工作</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#收集数据"><span class="nav-number">4.3.</span> <span class="nav-text">收集数据</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#分析数据"><span class="nav-number">4.4.</span> <span class="nav-text">分析数据</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#后记-“一个空格引发的血案”"><span class="nav-number">5.</span> <span class="nav-text">后记 - “一个空格引发的血案”</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2018</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">xiaohutou</span>
+
+  
+
+  
+</div>
+
+
+
+
+  <div class="powered-by">由 <a class="theme-link" target="_blank" href="https://hexo.io">Hexo</a> 强力驱动 v3.7.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 &mdash; <a class="theme-link" target="_blank" href="https://github.com/theme-next/hexo-theme-next">NexT.Gemini</a> v6.2.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=6.2.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=6.2.0"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=6.2.0"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=6.2.0"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=6.2.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=6.2.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=6.2.0"></script>
+
+
+
+  
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+<!-- LOCAL: You can save these files to your site and update links -->
+    
+        
+        <link rel="stylesheet" href="https://aimingoo.github.io/gitmint/style/default.css">
+        <script src="https://aimingoo.github.io/gitmint/dist/gitmint.browser.js"></script>
+    
+<!-- END LOCAL -->
+
+    
+
+    
+      <script type="text/javascript">
+      function renderGitment(){
+        var gitment = new Gitmint({
+            id: window.location.pathname,
+            owner: 'xiaohutou',
+            repo: 'xiaohutou.github.io',
+            
+            lang: "" || navigator.language || navigator.systemLanguage || navigator.userLanguage,
+            
+            oauth: {
+            
+            
+                client_secret: '67f5892dc03fd6d49a5c95713a520d93077da765',
+            
+                client_id: '649abcb8a6b6f2bbc68b'
+            }});
+        gitment.render('gitment-container');
+      }
+
+      
+      renderGitment();
+      
+      </script>
+    
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+  
+
+  
+
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
