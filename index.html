@@ -282,6 +282,208 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/05/20/ovs-classifier-note/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="xiaohutou">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="小虎头 加油">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/05/20/ovs-classifier-note/" itemprop="url">
+                  OpenVSwitch流分类器笔记
+                </a>
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2018-05-20 22:30:29" itemprop="dateCreated datePublished" datetime="2018-05-20T22:30:29+09:00">2018-05-20</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2018-05-21 00:48:44" itemprop="dateModified" datetime="2018-05-21T00:48:44+09:00">2018-05-21</time>
+              
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <div class="note primary"><ol>
+<li>本文主要是对openvswitch的lib/classifier.h文件中关于流分类器注释的翻译。</li>
+<li>翻译中，意译的地方较多。如有错误，或不准确的地方，欢迎邮件（<a href="mailto:13581561959@163.com" target="_blank" rel="noopener">13581561959@163.com</a>）讨论，谢谢。</li>
+</ol></div>
+<h1 id="什么是流分类器"><a href="#什么是流分类器" class="headerlink" title="什么是流分类器"></a>什么是流分类器</h1><p>流分类器保存了任意数量的“规则”，这些规则由一组用于匹配字段或子字段的值和规则的优先级组成。<span style="color:red"><font size="+1">每一个openflow表被实例化为一个流分类器</font></span>。</p>
+<p>流分类器主要的设计目标。首先，给定一组数据报的报头，尽可能快地查找到与之匹配的优先级最高的规则。接下来的一节主要阐述第二个目标。</p>
+<h1 id="“Un-wildcarding”"><a href="#“Un-wildcarding”" class="headerlink" title="“Un-wildcarding”"></a>“Un-wildcarding”</h1><p>流分类器的一个主要目标是生成一个通配掩码，作为数据报查找的连带产物，其指明数据报头的哪些位对于分类结果是至关重要的。理论上，在掩码中被置1的位表明，如果在数据报中与之相对应的位被反转，则分类器的结果可能改变。对于掩码中为零的位，则改变数据包头中相对应的位不会改变分类器的结果。因此，被标记为通配的字段在分类中不发挥作用。</p>
+<p>这样的通配掩码对于支持采用通配的方式处理某些字段或子字段的数据平面非常有用。例如，如果为一个TCP数据报查找flow时不需要关心TCP源或目地端口，交换机的控制平面在数据平面上插入一个匹配任意端口（tcp协议的port）的流，这样，数据平面就可以自己处理包含其他TCP原和目标端口的数据报，而不需要ovs-vswitchd来辅助处理。对于Open vSwitch一类的软件交换机而言，这是非常有帮助的，当然，对于基于ASIC的交换机而言，一样能获得很好的效果。</p>
+<h1 id="通配掩码的属性"><a href="#通配掩码的属性" class="headerlink" title="通配掩码的属性"></a>通配掩码的属性</h1><ul>
+<li>“False 1-bits”是可接受的。就是说，把统配符掩码位设置为1将不会导致一个数据报被错误地转发。当然，一个被全部置1的通配符掩码将生成正确的分类结果，只是产生不必要的低效率。</li>
+<li>“False 0-bits”会导致问题，所以必须避免。在极端的情况下，所有的掩码位都被置为0时，分类器的输出结果只会在只有一个能匹配所有的数据报的流的时输出正确的结果。</li>
+<li>“0-bits”是期望的，因为这样，数据平面可以跟自主地处理，不过度地依赖ovs-vswitchd处理数据流。因此，提高了效率。</li>
+<li>目前，我们没有找到非常好的方式来产生包含最大数量的0-bits通配掩码。后面会有专门的章节描述我们使用的各种估计方法。</li>
+<li>在一个给定的分类器中，使用通配查询将产生一组不交叉的结果。尤其是：<br>假如分类器C1包含任意的规则集合而分类器C2的规则集合是空的。现在，使用一组数据包头H在C1中查找，输出结果是一个最高优先级的规则R1和通配掩码M。从包头H和通配掩码M生成一个新的规则R2，然后将R2加入到C2中，并赋予一个固定的优先级。如果对于数据报头H所有可能的集合都做这样的处理，那么这个过程不会试图添加任何重叠的规则到C2中，就是说，使用在这个过程中产生的规则匹配数据报时，只有一个规则被匹配。</li>
+</ul>
+<p>在查询过程中，分类器开始将通配符掩码全部置为0，就是说，全匹配。随着查询的进行，每一步在通配符掩码中添加限制条件，即，将0-bits变成完全匹配的1-bits。这个过程被称为“去通配”。如果一个查询检查一个特定的字段，则该字段对应的位必须“去通配”。通常，“去通配”对于正确性是必须的，但是对于性能是不理想的。</p>
+<h1 id="基础分类器设计"><a href="#基础分类器设计" class="headerlink" title="基础分类器设计"></a>基础分类器设计</h1><p>假设，在分类器中，所有的规则都有相同的样式。例如，假如他们都匹配以太网源和目的地址，并且通配所有其他的字段。那么，很明显，分类器的实现方式是基于以太网源和目的地址的哈希表。如果，一个新的分类规则采用其他的形式，就可以添加一个基于这些规则中的字段的哈希表。查询时，在两个表中分别查询flow。如果，都返回空，分类器就不包含相应的规则；如果其中一个返回结果，其就是需要的结果；如果在两个中都发现了匹配结果，则结果是两个中优先级高的。</p>
+<p>以上说明了，flow分类器的工作方式。在一个“struct classifier”中，每种格式的“struct cls_rule”会被挂载到一个独立的“struct cls_subtable”中。分类器在每个“struct cls_subtable”中查询目标结果，并且返回结果中优先级做的一个。subtalbes中按照其表中的最高优先级的值降序排列。这样，在查询过程中，可以跳过那些优先级比已查询到的结果低的subtables。这样做可以节约查询时间，并避免“去通配”操作。</p>
+<div class="note "><p>一个分类器可能包含很多除了优先级都一样的规则。在这种情况下，只用优先级最高的规则被直接存储在“struct cls_subtable”中，而其他的几乎一样的规则被存储在优先级最高的规则的链表中。</p></div>
+<h1 id="阶段查询（通配优化）"><a href="#阶段查询（通配优化）" class="headerlink" title="阶段查询（通配优化）"></a>阶段查询（通配优化）</h1><p>子表查询在规定的范围内被执行，从元数据（registers，in_port等），然后L2帧头，L3，最后是L4的端口。任何时候，如果在当前的subtable中没有结果则，其他的subtable都可以被跳过。</p>
+<p>阶段查询不会减少查询时间，并且可能增加，因为它把单个表的哈希查询变成多个表的哈希查询。在一些重要的场景下，它显著地减少了“去通配”的操作。</p>
+<h1 id="前缀跟踪（通配优化）"><a href="#前缀跟踪（通配优化）" class="headerlink" title="前缀跟踪（通配优化）"></a>前缀跟踪（通配优化）</h1><p>分类器使用前缀树（“tries”）来跟踪已经使用过的地址。这样，对于一个给定的地址分类器可以跳过那些很长的掩码的表。这样，对于不需要主机路由的地，数据平面flow的“去通配”被减少了。但是，由于需要访问额外的数据，就增加了查询时间。</p>
+<p>Trie查询和阶段查询时交叉进行的。所以，前缀树只被搜索一次当被配置的字段与查询相关时。前缀查询结果被保存，所以在每次分类器查询时，每个tire最多被查询一次。</p>
+<p>目前的实现中，跟踪大量的规则在每个地址前缀。更为激进的跳表方式是可能的，通过维护表的链表，其前缀包含相同长度的前缀，或者维护几个独立的trie。</p>
+<p>前缀跟踪通过OVSDB的“Flow_table”表的“filedspec”字段配置。“fieldspec”是一个字符串。“prefix”值是由被逗号分隔的字段名组成。</p>
+<p>对于任何一个flow表，可以被前缀跟踪使用的字段的数量是有限制的。目前，该值为3。</p>
+<h1 id="分区（查询时间和通配优化）"><a href="#分区（查询时间和通配优化）" class="headerlink" title="分区（查询时间和通配优化）"></a>分区（查询时间和通配优化）</h1><p>假如一个分类器通过“resubmit”被用于在一个流水线中处理多阶段查询，不同阶段的区分通过metadata（即，OpenFlow 1.1+中定义的“metadata”）实现。例如，metadata值为1指明是上行规则，metadata值为2指明匹配ACLs规则，而metadata值3指明匹配下行规则。这样，以metadata的值为基础，一个分类器被拆分成多个子分类器。</p>
+<p>分类器有一个特别的优化方法来加速匹配在这个场景下:</p>
+<ul>
+<li>每一个与metadata匹配的cls_subtable获得一个tag，其从subtable的掩码中得到。因此，很有可能是这样，每一个subtable有一个唯一的tag。（重复的tag会导致性能损失但是不影响正确性）</li>
+<li><p>对于每个被任何cls_rule匹配的metadata值， 分类器创建一个“struct cls_partition”通过metadata值被索引。cls_partition有一个“tags”字段，它的值是所有的包含任何匹配cld_partition的metadata值的cls_subtable的tag的位或。换而言之，struct cls_partition把具有相同的metadata值的子表聚合到一起。</p>
+<p>这样，一个flow的查询可以从flow的metadata的分区开始，然后跳过任何的cls_sbutable，其tag不与分区的tag交叉。（flow也必须在任何不匹配metadata的cls_subtable中查询。这样的cls_subtable的tag被赋值为TAG_ALL，所以它可以匹配任意的tag）。</p>
+</li>
+</ul>
+<p>分区节省了查询时间通过减少子表查询。subtable查询的减少也减少了“去通配”操作的数量。</p>
+<h1 id="分类器版本控制"><a href="#分类器版本控制" class="headerlink" title="分类器版本控制"></a>分类器版本控制</h1><p>分类器采用了版本控制的方式解决同步的性能问题。分类器的查询总是在一个特定的分类器版本上完成，分类器的版本被定义为一个自然数。</p>
+<p>当一个新的规则被加入到分类其中，其被设置为在一个特定的版本上可见。如果，在插入的过程中被使用的版本号大于任何被使用的查询版本号，新的规则被认为是不可见的。这意味着查询不能找到该规则，但是该规则在分类器中立即能被使用。</p>
+<p>类似地，一个规则能被标记为删除在接下来的版本中。为了删除一个规则而不影响到正在进行的查询，该规则应该被标记为不可见在一个特殊的版本中。这样，当所有的查询使用后期的版本时，该规则就可以被从分类器中移除。</p>
+<p>分类器能够保存重复的规则（具有相同的匹配标准和优先级）当至多其中一个在任何既定的搜索过程中可见。调用者负责分类器修改时维护不变性。</p>
+<p>分类器支持版本控制主要是因为以下两个原因：</p>
+<ol>
+<li>基于版本控制式的修改使得执行任意序列的分类器更改就像一个原子事务，在此期间，分类器的中间版本对于任何的查询是不可见的。同时，当一个规则被添加到将来的版本中，或者被标记为在当前版本后删除，这样的操作是可逆的，而不影响当前的查询。</li>
+<li>性能：在极端的情况下，添加（或删除）大量的规则的代价与分类器中存储的规则的数量成正比。然而，当多个规则被添加（或删除）在一个操作中，这种极端的情况下的代价能够被避免，只要对于任何新的规则只能在批量的添加完成后才可见。</li>
+</ol>
+<div class="note "><p>注意：classifier_replace函数立刻替换一个规则，因此在版本管理系统中，它是不安全的。对于不使用版本管理的用户来说，它依然是有用的。</p></div>
+<h1 id="延迟发布"><a href="#延迟发布" class="headerlink" title="延迟发布"></a>延迟发布</h1><p>从分类器中移除大量的规则的代价是昂贵的，因为相关的数据结构被拆卸，在很多的情况下仅仅是被重新初始化。在最坏的情况下，当每个规则的匹配规则都不同，维护匹配模式的代价是O（N^2）,其中N是不同的规则的数量。为了降低这个代价，分类器支持“延迟模式”，在这种情况下，改变内部的数据结构为了在将来的版本中查询也许不会被全部处理。处理最终会在延迟模式被关闭时最终完成。</p>
+<p>这个特性可以和版本管理一同工作，因此所有的为将来的版本所做的改变在延迟模式下完成。然后，在新的版本被查询可见前，延迟模式被关闭，这时所有的数据都已经可以被新的查询看到。</p>
+<p>为了使用延迟发布，首先调用classifier_defer(). 然后，修改分类器通过添加（使用一个特定的将来的版本号调用classifier_insert()）然后删除（调用cls_rule_make_removable_after_version()）。最后调用cls_rule_make_removable_after_version()，然后，声明新的版本可以被使用。</p>
+<h1 id="线程安全"><a href="#线程安全" class="headerlink" title="线程安全"></a>线程安全</h1><p>分类器可以安全地被多个reader线程同时使用，同时被一个writer，或者多个writer互斥对分类器修改。</p>
+<p>因为分类器的规则是被RCU保护的，规则的销毁在其被从分类器中移除后必须被RCU保护。同时，当版本被使用时，规则的删除必须是经典的RCU延迟的。在这种情况下，规则的销毁是加倍的RCU延迟，即，第二次调用ovsrcu_postpone()函数销毁规则是在第一次RCU移除规则的回掉函数中被调用的。</p>
+<p>那些查询中从来都不可见的规则与已经提及的规则的处理方式不同。这样的规则可以被马上移除，但是它们的销毁必须是RCU延迟的，因为规则的可见属性也许会被检查在规则被移除时。</p>
+
+          
+        
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/05/14/umdh-memory-leak/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -1604,7 +1806,7 @@
                 
                   <a href="/archives/">
                 
-                    <span class="site-state-item-count">8</span>
+                    <span class="site-state-item-count">9</span>
                     <span class="site-state-item-name">日志</span>
                   </a>
                 </div>
@@ -1872,6 +2074,8 @@
 
   
   
+    
+      
     
       
     
