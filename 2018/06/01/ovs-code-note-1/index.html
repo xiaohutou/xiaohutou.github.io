@@ -99,25 +99,25 @@
 
 
 
-  <meta name="description" content="某在线的Openstack环境，突发虚拟机不能上网的情况。由于是一个小型的环境，虚拟网络和控制网络并没有分开，整个网络的DHCP由Openstack的DHCP Agent提供。控制网络的操作一切正常。虚拟网络使用Linux系统内置的网桥。  在虚拟机的宿主机上使用tcpdump命令能够监测到DHCP消息发出，但是没有DHCP请求的回应消息。 在网络节点DHCP Agent上对应的物理网卡上能检测到">
-<meta name="keywords" content="openstack,交换机,虚拟机">
+  <meta name="description" content="前言最近几个月的工作主要是对Open vSwitch的Windows Server版进行功能扩展。在阅读代码过程中，在ovs-vswitchd处理数据平面的请求时，遇到frozen_state字段，今天在阅读Openflow流表转换的代码时，看到关于冻结转换的注释（ofproto-dpif-xflate.c:273 - 378），特此翻译如下。 冻结转换 （Freezing Translation">
+<meta name="keywords" content="OpenvSwtich,翻译">
 <meta property="og:type" content="article">
-<meta property="og:title" content="华为交换机s57xx端口安全保护导致虚拟机无法联网">
-<meta property="og:url" content="http://yoursite.com/2018/04/04/2018-04-04-21/index.html">
+<meta property="og:title" content="OpenvSwitch代码阅读笔记（1）-- Freezing Translation">
+<meta property="og:url" content="http://yoursite.com/2018/06/01/ovs-code-note-1/index.html">
 <meta property="og:site_name" content="小虎头 加油">
-<meta property="og:description" content="某在线的Openstack环境，突发虚拟机不能上网的情况。由于是一个小型的环境，虚拟网络和控制网络并没有分开，整个网络的DHCP由Openstack的DHCP Agent提供。控制网络的操作一切正常。虚拟网络使用Linux系统内置的网桥。  在虚拟机的宿主机上使用tcpdump命令能够监测到DHCP消息发出，但是没有DHCP请求的回应消息。 在网络节点DHCP Agent上对应的物理网卡上能检测到">
+<meta property="og:description" content="前言最近几个月的工作主要是对Open vSwitch的Windows Server版进行功能扩展。在阅读代码过程中，在ovs-vswitchd处理数据平面的请求时，遇到frozen_state字段，今天在阅读Openflow流表转换的代码时，看到关于冻结转换的注释（ofproto-dpif-xflate.c:273 - 378），特此翻译如下。 冻结转换 （Freezing Translation">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2018-04-07T10:31:02.062Z">
+<meta property="og:updated_time" content="2018-06-19T09:36:10.941Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="华为交换机s57xx端口安全保护导致虚拟机无法联网">
-<meta name="twitter:description" content="某在线的Openstack环境，突发虚拟机不能上网的情况。由于是一个小型的环境，虚拟网络和控制网络并没有分开，整个网络的DHCP由Openstack的DHCP Agent提供。控制网络的操作一切正常。虚拟网络使用Linux系统内置的网桥。  在虚拟机的宿主机上使用tcpdump命令能够监测到DHCP消息发出，但是没有DHCP请求的回应消息。 在网络节点DHCP Agent上对应的物理网卡上能检测到">
+<meta name="twitter:title" content="OpenvSwitch代码阅读笔记（1）-- Freezing Translation">
+<meta name="twitter:description" content="前言最近几个月的工作主要是对Open vSwitch的Windows Server版进行功能扩展。在阅读代码过程中，在ovs-vswitchd处理数据平面的请求时，遇到frozen_state字段，今天在阅读Openflow流表转换的代码时，看到关于冻结转换的注释（ofproto-dpif-xflate.c:273 - 378），特此翻译如下。 冻结转换 （Freezing Translation">
 
 
 
 
 
 
-  <link rel="canonical" href="http://yoursite.com/2018/04/04/2018-04-04-21/"/>
+  <link rel="canonical" href="http://yoursite.com/2018/06/01/ovs-code-note-1/"/>
 
 
 
@@ -127,7 +127,7 @@
   };
 </script>
 
-  <title>华为交换机s57xx端口安全保护导致虚拟机无法联网 | 小虎头 加油</title>
+  <title>OpenvSwitch代码阅读笔记（1）-- Freezing Translation | 小虎头 加油</title>
   
 
 
@@ -283,7 +283,7 @@
   
   
   <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/04/04/2018-04-04-21/">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/06/01/ovs-code-note-1/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="name" content="xiaohutou">
@@ -300,7 +300,7 @@
 
         
         
-          <h1 class="post-title" itemprop="name headline">华为交换机s57xx端口安全保护导致虚拟机无法联网
+          <h1 class="post-title" itemprop="name headline">OpenvSwitch代码阅读笔记（1）-- Freezing Translation
               
             
           </h1>
@@ -325,7 +325,7 @@
                 
               
 
-              <time title="创建时间：2018-04-04 22:01:12" itemprop="dateCreated datePublished" datetime="2018-04-04T22:01:12+09:00">2018-04-04</time>
+              <time title="创建时间：2018-06-01 21:00:10" itemprop="dateCreated datePublished" datetime="2018-06-01T21:00:10+09:00">2018-06-01</time>
             
 
             
@@ -342,7 +342,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2018-04-07 19:31:02" itemprop="dateModified" datetime="2018-04-07T19:31:02+09:00">2018-04-07</time>
+                <time title="修改时间：2018-06-19 18:36:10" itemprop="dateModified" datetime="2018-06-19T18:36:10+09:00">2018-06-19</time>
               
             
           </span>
@@ -356,8 +356,8 @@
                 <span class="post-meta-item-icon">
                   <i class="fa fa-comment-o"></i>
                 </span>
-                <a href="/2018/04/04/2018-04-04-21/#comments" itemprop="discussionUrl">
-                  <span class="post-meta-item-text">评论数：</span> <span class="post-comments-count gitment-comments-count" data-xid="/2018/04/04/2018-04-04-21/" itemprop="commentsCount"></span>
+                <a href="/2018/06/01/ovs-code-note-1/#comments" itemprop="discussionUrl">
+                  <span class="post-meta-item-text">评论数：</span> <span class="post-comments-count gitment-comments-count" data-xid="/2018/06/01/ovs-code-note-1/" itemprop="commentsCount"></span>
                 </a>
               </span>
             
@@ -385,13 +385,38 @@
       
 
       
-        <p>某在线的Openstack环境，突发虚拟机不能上网的情况。由于是一个小型的环境，虚拟网络和控制网络并没有分开，整个网络的DHCP由Openstack的DHCP Agent提供。控制网络的操作一切正常。虚拟网络使用Linux系统内置的网桥。</p>
+        <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>最近几个月的工作主要是对Open vSwitch的Windows Server版进行功能扩展。在阅读代码过程中，在ovs-vswitchd处理数据平面的请求时，遇到frozen_state字段，今天在阅读Openflow流表转换的代码时，看到关于冻结转换的注释（ofproto-dpif-xflate.c:273 - 378），特此翻译如下。</p>
+<h1 id="冻结转换-（Freezing-Translation）"><a href="#冻结转换-（Freezing-Translation）" class="headerlink" title="冻结转换 （Freezing Translation）"></a>冻结转换 （Freezing Translation）</h1><p>在转换的过程中，会遇到需要暂停并设置一个检查点的情况，这样，转换操作可以在以后重新开始。设置checkpoint的过程被称为“freezing”，而重启该操作的过程被称为“thawing”。</p>
+<p>freezing的使用场景：</p>
 <ol>
-<li>在虚拟机的宿主机上使用tcpdump命令能够监测到DHCP消息发出，但是没有DHCP请求的回应消息。</li>
-<li>在网络节点DHCP Agent上对应的物理网卡上能检测到虚拟机的DHCP请求和回应消息。</li>
+<li><p>“Recirculation”, 转换操作发现在不执行以完成的转换的情况下，它没有足够的信息完成剩余的转换操作。在这种情况下，转换操作被冻结（freeze）并且相应的数据被赋予一个唯一的“recirculation ID”，该值被保存在用户空间的一个表中（参见ofproto-dpif-rid.h）。同时，添加一个OVS_ACTION_ATTR_RECIRC的动作，该动作的值是“recirculation ID”。当一个数据报触发这个动作后，数据平面使用该ID重新查表。如果，数据平面没有找到对应的记录，数据平面将请求控制平面处理。控制平面从“recirculation table”中查到ID，如果此时相关的信息已知，就重启转换操作。<br>原生的例子是MPLS。MPLS在Openflow中的实现，只有在最后一个MPLS标签后面的协议被剥离后，才能知道数据报封装的具体的协议。就是说，OVS无法跳过MPLS标签直接解析数据帧头。因此，在这种情况下，通过“recirculation”操作解析MPLS封装的数据帧。<br>（OVS同时使用OVS_ACTION_ATTR_RECIRC来实现输出到绑定网卡的哈希操作。OVS预先生成所有在数据平面上输出到绑定网卡上的流表，因此，将数据报发给用户空间做再一次转换这样复杂的流程就不需要了，即，绑定网卡不会按照上面提到的过程来处理。）</p>
+</li>
+<li><p>“Continuation”。A continuation是Openflow控制器干预数据报处理的一种机制。当转换过程中遇到一个带有“pause”标记的“controller”操作，转换就被暂停，被冻结的数据经过序列化后，发送给Openflow的控制器。控制器然后检查或修改被冻结的数据，并最终将数据发送给虚拟交换机，然后虚拟交换机解冻这些数据并继续转换操作。</p>
+</li>
 </ol>
-<p>基于以上两点，问题应该是交换机没有转发DHCP的回应消息。登陆到交换机后，通过事件命令（system event），发现虚拟网络的接口上有报警事件，显示该端口处于安全保护状态，端口允许的MAC地址的数量的上限为1。至此，问题基本确认。将端口安全保护关掉后，虚拟机能够正常上网。也可以将端口允许的MAC地址数量上限提高，来解决该问题。</p>
-<p>在云系统中，将控制网络和存储网络与虚拟网络物理隔离。虚拟网络可以使用功能较少，傻瓜式的两层交换机，能有效避免不必要的网络故障。至于安全方面，Openstack Neutron组件已经做了很好的防护，至于更高级的病毒检测、IPS等则需要通过专门的防火墙完成。</p>
+<p>冻结转换的主要问题时保存状态，因此当转换被解冻时，操作能够继续进行而没有被破坏。尤其是，动作必须按照下面的顺序保存：</p>
+<ul>
+<li>如果冻结转换的原因是需要更多的信息，指明冻结原因的操作。</li>
+<li>任何其他的在当前流表中等待执行的操作。</li>
+<li>如果转换在NXAST_RESUMIT中被冻结，任何其他的操作都在resubmit操作的后面。resubmit操作可能是嵌套的，所以必须返回到控制平面处理。</li>
+<li>Openflow 1.1+中定义的操作集合。</li>
+</ul>
+<p>动作或流表查询所依赖的状态，必须保存，例如：</p>
+<ul>
+<li>元数据字段（输入端口，寄存器，OF1.1+的元数据，… ）</li>
+<li>NXAST_STACK_PUSH和NXAST_STACK_POP操作使用的栈信息</li>
+<li>在控制平面栈的每个级别上，流表的表ID和cookie被转换，因为它们在执行OFPAT_CONTROLLER操作（包括其他的方式）时是可见的。</li>
+</ul>
+<p>通过这些字段，转换控制状态的保存。当一个冻结转换被识别时，转化过程如下：</p>
+<ol>
+<li>设置‘freezing’为true。</li>
+<li>设置‘exit’为true，这样后续的操作就会知道上一个操作从转换过程中推出。</li>
+<li>在‘frozen_actions’中添加OFPACT_UNROLL_XLATE动作，并且为了以后能够很方便的找到当前的操作，frozen_actions.header指向这个动作。这个动作中保存了当前的表ID和cookie，所以在后续的环回的转换中，它们能被恢复过来。</li>
+<li>添加指示环回的动作，以及流表中其他后续的动作到’frozen_actions’中，这样，它们就能被执行当该流表重新被执行转换时。</li>
+<li>返回。</li>
+<li>指示环回的动作也许被嵌套在被重新提交的请求中，该请求还有没有执行的动作。所有这些都表明，当前离开和冻结了动作，并且在‘frozen_actions’中再次添加OFPACT_UNROLL_XLATE动作，以及没有被执行的动作。</li>
+</ol>
+<p>如果因为环回冻结转换，调用者生成一个环回ID，并且保存所有的当前操作的状态。对于所有的环回转换，调用者把它们传递新的转换去执行。这个过程中，产生了一组可以被直接转换的ofpacks，这时，它们的处理就没什么特殊之处了。</p>
 
       
     </div>
@@ -412,11 +437,9 @@
       
         <div class="post-tags">
           
-            <a href="/tags/openstack/" rel="tag"># openstack</a>
+            <a href="/tags/OpenvSwtich/" rel="tag"># OpenvSwtich</a>
           
-            <a href="/tags/交换机/" rel="tag"># 交换机</a>
-          
-            <a href="/tags/虚拟机/" rel="tag"># 虚拟机</a>
+            <a href="/tags/翻译/" rel="tag"># 翻译</a>
           
         </div>
       
@@ -429,8 +452,8 @@
         <div class="post-nav">
           <div class="post-nav-next post-nav-item">
             
-              <a href="/2018/04/02/hello-world/" rel="next" title="Emacs 25 Windows 64bit 中文支持">
-                <i class="fa fa-chevron-left"></i> Emacs 25 Windows 64bit 中文支持
+              <a href="/2018/05/20/ovs-classifier-note/" rel="next" title="OpenVSwitch流分类器笔记">
+                <i class="fa fa-chevron-left"></i> OpenVSwitch流分类器笔记
               </a>
             
           </div>
@@ -439,8 +462,8 @@
 
           <div class="post-nav-prev post-nav-item">
             
-              <a href="/2018/04/10/lstm/" rel="prev" title="用于情感分析的LSTM网络(LSTM Networks for Sentiment Analysis)">
-                用于情感分析的LSTM网络(LSTM Networks for Sentiment Analysis) <i class="fa fa-chevron-right"></i>
+              <a href="/2018/06/10/ovs-ofputil-flow-mod/" rel="prev" title="OpenvSwitch结构体ofputil_flow_mod详解">
+                OpenvSwitch结构体ofputil_flow_mod详解 <i class="fa fa-chevron-right"></i>
               </a>
             
           </div>
@@ -497,8 +520,17 @@
       
 
       
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
 
-      <section class="site-overview-wrap sidebar-panel sidebar-panel-active">
+      <section class="site-overview-wrap sidebar-panel">
         <div class="site-overview">
           <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
             
@@ -584,6 +616,22 @@
         </div>
       </section>
 
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#冻结转换-（Freezing-Translation）"><span class="nav-number">2.</span> <span class="nav-text">冻结转换 （Freezing Translation）</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
       
 
       

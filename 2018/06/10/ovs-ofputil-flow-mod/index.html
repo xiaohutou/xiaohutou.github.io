@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2"/>
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=6.2.0" rel="stylesheet" type="text/css" />
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png?v=6.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png?v=6.2.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png?v=6.2.0">
+
+
+  <link rel="mask-icon" href="/images/logo.svg?v=6.2.0" color="#222">
+
+
+
+
+
+
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '6.2.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="前言 ofputil_flow_mod是一个很重要的结构体，ovs在初始化时添加默认流表项以及使用ovs-ofctl操作ovs的流表项时都涉及到该结构体。 本文涉及的代码是截至到2018年6月1日，ovs主干树的代码。  struct ofputil_flow_mod详解list_node 类型 struct ovs_list  描述双向链表节点的结构体。与linux内核的实现基本一样，为了兼容M">
+<meta name="keywords" content="openvswitch,原创">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OpenvSwitch结构体ofputil_flow_mod详解">
+<meta property="og:url" content="http://yoursite.com/2018/06/10/ovs-ofputil-flow-mod/index.html">
+<meta property="og:site_name" content="小虎头 加油">
+<meta property="og:description" content="前言 ofputil_flow_mod是一个很重要的结构体，ovs在初始化时添加默认流表项以及使用ovs-ofctl操作ovs的流表项时都涉及到该结构体。 本文涉及的代码是截至到2018年6月1日，ovs主干树的代码。  struct ofputil_flow_mod详解list_node 类型 struct ovs_list  描述双向链表节点的结构体。与linux内核的实现基本一样，为了兼容M">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2018-06-19T09:33:26.218Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="OpenvSwitch结构体ofputil_flow_mod详解">
+<meta name="twitter:description" content="前言 ofputil_flow_mod是一个很重要的结构体，ovs在初始化时添加默认流表项以及使用ovs-ofctl操作ovs的流表项时都涉及到该结构体。 本文涉及的代码是截至到2018年6月1日，ovs主干树的代码。  struct ofputil_flow_mod详解list_node 类型 struct ovs_list  描述双向链表节点的结构体。与linux内核的实现基本一样，为了兼容M">
+
+
+
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2018/06/10/ovs-ofputil-flow-mod/"/>
+
+
+
+<script type="text/javascript" id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>OpenvSwitch结构体ofputil_flow_mod详解 | 小虎头 加油</title>
+  
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style type="text/css">
+    .use-motion .motion-element,
+    .use-motion .brand,
+    .use-motion .menu-item,
+    .sidebar-inner,
+    .use-motion .post-block,
+    .use-motion .pagination,
+    .use-motion .comments,
+    .use-motion .post-header,
+    .use-motion .post-body,
+    .use-motion .collection-title { opacity: initial; }
+
+    .use-motion .logo,
+    .use-motion .site-title,
+    .use-motion .site-subtitle {
+      opacity: initial;
+      top: initial;
+    }
+
+    .use-motion {
+      .logo-line-before i { left: initial; }
+      .logo-line-after i { right: initial; }
+    }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">小虎头 加油</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle">老兵不死，之渐凋零</p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+    <a href="/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-home"></i> <br />首页</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+    <a href="/tags/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />标签</a>
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+    <a href="/archives/" rel="section">
+      <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />归档</a>
+  </li>
+
+      
+      
+    </ul>
+  
+
+  
+
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/06/10/ovs-ofputil-flow-mod/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="xiaohutou">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="小虎头 加油">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">OpenvSwitch结构体ofputil_flow_mod详解
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2018-06-10 21:34:55" itemprop="dateCreated datePublished" datetime="2018-06-10T21:34:55+09:00">2018-06-10</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2018-06-19 18:33:26" itemprop="dateModified" datetime="2018-06-19T18:33:26+09:00">2018-06-19</time>
+              
+            
+          </span>
+
+          
+
+          
+            
+              <span class="post-comments-count">
+                <span class="post-meta-divider">|</span>
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-comment-o"></i>
+                </span>
+                <a href="/2018/06/10/ovs-ofputil-flow-mod/#comments" itemprop="discussionUrl">
+                  <span class="post-meta-item-text">评论数：</span> <span class="post-comments-count gitment-comments-count" data-xid="/2018/06/10/ovs-ofputil-flow-mod/" itemprop="commentsCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><ul>
+<li>ofputil_flow_mod是一个很重要的结构体，ovs在初始化时添加默认流表项以及使用ovs-ofctl操作ovs的流表项时都涉及到该结构体。</li>
+<li>本文涉及的代码是截至到2018年6月1日，ovs主干树的代码。</li>
+</ul>
+<h1 id="struct-ofputil-flow-mod详解"><a href="#struct-ofputil-flow-mod详解" class="headerlink" title="struct ofputil_flow_mod详解"></a>struct ofputil_flow_mod详解</h1><h3 id="list-node"><a href="#list-node" class="headerlink" title="list_node"></a>list_node</h3><ul>
+<li>类型 struct ovs_list  描述双向链表节点的结构体。与linux内核的实现基本一样，为了兼容MSVS，初始化部分有所不同。</li>
+</ul>
+<h3 id="match"><a href="#match" class="headerlink" title="match"></a>match</h3><ul>
+<li><p>类型struct minimatch 采用稀疏编码的方式对struct match压缩。struct minimatch和sttuct match定义如下：</p>
+<figure class="highlight c"><figcaption><span>include/openvswitch/match.h:40 </span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">match</span> &#123;</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">flow</span> <span class="title">flow</span>;</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">flow_wildcards</span> <span class="title">wc</span>;</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">tun_metadata_allocation</span> <span class="title">tun_md</span>;</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+  <figure class="highlight c"><figcaption><span>include/openvswitch/match.h:249</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">minimatch</span> &#123;</span></span><br><span class="line">    <span class="keyword">union</span> &#123;</span><br><span class="line">        <span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line">            <span class="class"><span class="keyword">struct</span> <span class="title">miniflow</span> *<span class="title">flow</span>;</span></span><br><span class="line">            <span class="class"><span class="keyword">struct</span> <span class="title">minimask</span> *<span class="title">mask</span>;</span></span><br><span class="line">        &#125;;</span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">miniflow</span> *<span class="title">flows</span>[2];</span></span><br><span class="line">    &#125;;</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">tun_metadata_allocation</span> *<span class="title">tun_md</span>;</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>  struct minimatch由两个struct miniflow和一个struct tun_metadata_allocation组成；它们与struct match中的flow, wc和tun_md一一对应。OVS在只对struct match中的flow和wc字段使用稀疏编码的方式压缩，tun_md保持不变。实际上，minimatch只保存了match结构中的flow和ws字段中的非零部分（单位是8个字节）。tun_md字段保存的数据都与隧道（GRE、Vxlan等）相关，这部分数据保持不变。</p>
+</li>
+<li>ovs-ofctl中从字符串转换为minimatch的处理流程（ofp-flow.c:1474  parse_ofp_str__）：<br> 流程说明以添加“dl_type=0x0800,dl_dst=11:22:33:44:55:66”规则为例<ul>
+<li>1 初始化struct ofputil_flow_mod结构体。</li>
+<li>2 定义局部变量match并初始化（ofp-flow.c:1564 struct match match = MATCH_CATCHALL_INITIALIZER;)</li>
+<li>3 调用ofputil_parse_key_value将字符串拆解成键值对{key，value}，例如示例的字符串被拆解成[{“dl_type”: “0x0800”},{“dl_dst”:”11:22:33:44:55:66}]</li>
+<li>4 根据key，将value添加到match对应的字段中。<ul>
+<li>在ofp_parse_field中，调用mf_parse解析value。mf_parse函数主要是将value转换为对应的数据。例如将MAC地址字符串转换为struct eth_addr。mf_parse在解析数据时，会同时解析数据的掩码。</li>
+<li>数据转换完成后，调用mf_set函数设置match中对应的字段。mf_set调用match_set_*函数操作match中的数据。例如，在设置match的dl_dst字段时，最后调用match_set_dl_dst或match_set_dl_dst_masked.</li>
+</ul>
+</li>
+<li>5 返回步骤3，直到所有的字符串解析完。</li>
+<li>6 调用minimatch_init将match转换为minimatch  </li>
+</ul>
+</li>
+</ul>
+<h3 id="priority"><a href="#priority" class="headerlink" title="priority"></a>priority</h3><ul>
+<li>类型int</li>
+<li><p>OpenFlow协议流表规则的优先级，数值越大优先级越高。实际使用中，网络报文会与多个规则匹配，例如如下两条规则：</p>
+<ul>
+<li>1。“dl_dst=11:22:33:44:55:66, actions=output:x”</li>
+<li>2。“in_port=a, dl_dst=11:22:33:44:55:66, actions=output:y”</li>
+</ul>
+<p>从端口A发送的目标MAC地址为“11:22:33:44:55:66”数据报文，与上面的两条规则都匹配。如果这两条规则的优先级是一样的，则按其加入的先后顺序处理；否则，按优先级来处理。如果规则1的优先级高于2，则2永远都不会被匹配上。</p>
+</li>
+</ul>
+<h3 id="cookie和cookie-mask"><a href="#cookie和cookie-mask" class="headerlink" title="cookie和cookie_mask"></a>cookie和cookie_mask</h3><ul>
+<li>类型ovs_be64</li>
+<li>Cookie，有时也用其复数形式 Cookies，指某些网站为了辨别用户身份、进行 session 跟踪而储存在用户本地终端上的数据（通常经过加密）。cookie字段的作用是身份识别或session跟踪，OpenFlow协议本身支持多个控制器，但只有一个主控制（master）工作，其他的控制器（slave）只有在主控制器失效后，slave控制器才工作。cookie的作用更多的是与session跟踪相关的，例如在某一时段临时添加了一些特殊的处理，删除时可以通过该字段将其全部删除。<br>  cookie字段和cookie_mask字段在添加规则时被忽略，在删除和修改规则时被使用。</li>
+</ul>
+<h3 id="new-cookie和modify-cookie"><a href="#new-cookie和modify-cookie" class="headerlink" title="new_cookie和modify_cookie"></a>new_cookie和modify_cookie</h3><ul>
+<li>new_cookie的类型是ovs_be64， modify_cookie的类型是布尔型</li>
+<li>用于修改或添加cookie。<ul>
+<li>添加流表规则时，该字段的值不能是UINT64_MAX. 可自行定义该值。modify_cookie的值为true。</li>
+<li>在修改流表规则（OFPFC_MODIFY and OFPFC_MODIFY_STRICT）时，包含以下两种情况：<ul>
+<li>1。 如果一个或多个规则匹配，并且“modify_cookie”被设置为true，则cookies被替换为new_cookie，</li>
+<li>2。如果没有匹配的规则，则按照添加规则的方式处理。</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="table-id"><a href="#table-id" class="headerlink" title="table_id"></a>table_id</h3><ul>
+<li>类型uint8_t</li>
+<li>规则被添加的表ID。openflow从1.1版本开始支持多级流表。在ovs-ofctl的命令中如果带有table参数，如：<br>  ovs-ofctl add-flow internal “priority=10,table=2,dl_type=0x08000,dl_dst=11:22:33:44:55:66,actions=output:1”<br>  则通信协议号被设置为OFPUTIL_P_OF10_STD_TID，通信的消息仍然是struct ofp10_flow_mod。表的id号被封装到command字段中。<br>  格式如下:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align:center">15—————–8</th>
+<th style="text-align:center">7—————0</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">table_id</td>
+<td style="text-align:center">command</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>相关代码：<ul>
+<li>ofputil_tid_command ： ofp-flow.c:356</li>
+<li>ofm-&gt;command = ofputil_tid_command(fm, protocol);    ofp-flow.c:436和456</li>
+</ul>
+</li>
+</ul>
+<h3 id="command"><a href="#command" class="headerlink" title="command"></a>command</h3><ul>
+<li>类型uint16_t</li>
+<li>操作flow的命令。目前支持的命令如下：<ul>
+<li>OFPFC_ADD 添加<ul>
+<li>OFPFC_MODIFY 修改所有匹配的流表</li>
+<li>OFPFC_MODIFY_STRICT 修改严格匹配的流表</li>
+<li>OFPFC_DELETE 删除所有匹配的流表</li>
+<li>OFPFC_DELETE_STRICT  修改严格匹配的流表</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="idle-timeout和hard-timeout"><a href="#idle-timeout和hard-timeout" class="headerlink" title="idle_timeout和hard_timeout"></a>idle_timeout和hard_timeout</h3><ul>
+<li>类型uint16_t</li>
+<li>idle_timeout和hard_timeout指定规则的有效期，单位秒。其中，idle_timeout指定流表规则失效前在多少秒中内是处于idle状态的，即没有任何报文与其匹配。而hard_timeout则是指流表在多少秒后失效，不管这期间是否有报文与该规则匹配。默认值为0，即永久生效。</li>
+</ul>
+<h3 id="buffer-id"><a href="#buffer-id" class="headerlink" title="buffer_id"></a>buffer_id</h3><ul>
+<li>类型uint32_t</li>
+<li>buffer_id指明被cache的数据报的ID，该字段是datapath设置的。默认值UINT32_MAX。</li>
+</ul>
+<h3 id="out-port和out-group"><a href="#out-port和out-group" class="headerlink" title="out_port和out_group"></a>out_port和out_group</h3><ul>
+<li>out_port的类型是ofp_port_t，out_group的类型为unit32_t</li>
+<li>out_port和out_group被ovs-ofctl的replace-flow命令使用，默认值 OFPP_ANY 。</li>
+</ul>
+<h3 id="flags"><a href="#flags" class="headerlink" title="flags"></a>flags</h3><ul>
+<li>类型enum ofputil_flow_mod_flags</li>
+<li>ovs扩展的功能的标记。默认值为0</li>
+<li>相关代码， ofp-flows.c: 1578-1590和ofp-flow.h:35-65</li>
+</ul>
+<h3 id="importance"><a href="#importance" class="headerlink" title="importance"></a>importance</h3><ul>
+<li>类型uint16_t</li>
+<li>openflow一个表默认支持UINT_MAX个项，当添加表项时，如果此时没有剩余的存储空间则选择牺牲者。该值越高，被作为牺牲者的概率越大。默认值为0。</li>
+<li>相关代码：<ul>
+<li>rule_eviction_priority : ofproto.c:8493    </li>
+</ul>
+</li>
+</ul>
+<h3 id="ofpacts和ofpacts-len"><a href="#ofpacts和ofpacts-len" class="headerlink" title="ofpacts和ofpacts_len"></a>ofpacts和ofpacts_len</h3><ul>
+<li>ofpacts的类型为struct ofpact *； ofpacts_len的类型为size_t</li>
+<li><p>ofpacks封装openflow的action。在ovs_ofctl中解析转换的流程如下（ofp-actions.c:8741 ofpacts_parse__）：</p>
+<ul>
+<li>1。 调用ofputil_parse_key_value将字符串拆解成键值对{key，value}。例如“output:x”的key为“output”，值为x。</li>
+<li>2。 调用ofpact_type_from_name判断key定义的操作，如果是返回真，则调用ofpact_parse在ofpacts设置action及其值。</li>
+<li>3。ofpack_parse(ofp-actions.c:8709)中通过定义宏OFPACT和在ofp-actions.h中定义的宏OFPACTS调用相关函数设置action。例如被添加的操作是output，这里就调用parse_OUTPUT函数。</li>
+<li><p>4。parse_OUTPUT函数中，首先判断output的操作中是否有“port”和“max_len”字符串，如果有，则调用ofpact_put_OUTPUT_TRUNC处理（NXAST_OUTPUT_TRUNC是ovs扩展的操作）；否则，调用ofputil_port_from_string将用字符串表示的端口号转换为ofp_port_t。下面看一下por_map参数是怎么得到的。</p>
+<ul>
+<li>在ofctl_flow_mod调用parse_ofp_flow_mod_str将字符串表示的flow转换为struct minimatch前，首先调用ports_to_accept函数来获得虚拟交换机所有的端口的描述信息，是否获得获取该信息是通过全局变量use_names（默认值-1）来控制的，use_names的值是通过ovs-ofctl工具的参数–names和–no-names改变的。如果use_names不为零，则调用get_port_map从ovs-vswitchd获得端口的描述信息。</li>
+<li>get_port_map与ovs-vswitchd建立通信连接后，调用port_iterator_fetch_features函数读取当前虚拟交换机所有的端口信息。</li>
+<li>port_iterator_fetch_features函数调用ofpraw_alloc生成类型为OFPTYPE_FEATURES_REQUEST的请求。注意调用参数是OFPRAW_OFPT_FEATURES_REQUEST，raw_info_get函数将其转换为OFPTYPE_FEATURES_REQUEST。</li>
+<li>ovs-vswitchd收到请求后，调用handle_features_request将struct bridge结构体中的ofproto字段中的端口信息发送给请求者（ofproto.c:3309）。</li>
+</ul>
+</li>
+<li><p>5。调用ofpact_put_OUTPUT（ofp-actions.h:1168）在ofpacts分配空间存储struct ofpact_output类型的数据。OFPP_CONTROLLER是指openflow的控制器，即将数据发送给openflow控制器。在我们的场景下，ovs不会设置外部的openflow控制器。所以ofpact_output的max_len字段为0.</p>
+</li>
+</ul>
+</li>
+<li>相关代码<ul>
+<li>ofp-port.c:149</li>
+<li>ofp-actions.c:8709</li>
+<li>ofp-actions.h:1168</li>
+<li>ofproto.c:3309</li>
+</ul>
+</li>
+</ul>
+<h3 id="ofpacts-tlv-bitmap"><a href="#ofpacts-tlv-bitmap" class="headerlink" title="ofpacts_tlv_bitmap"></a>ofpacts_tlv_bitmap</h3><ul>
+<li>类型uint64_t</li>
+<li>与特定的操作相关，如NXAST_RAW_CT, NXAST_RAW_MULTIPATH, ONFACT_RAW13_COPY_FIELD等。</li>
+<li>默认值为0.</li>
+<li>相关代码：<ul>
+<li>of-flow.c:316     fm-&gt;ofpacts_tlv_bitmap = 0;</li>
+<li>ofp-actions.inc2(自动生成的文件，在编译根目录的lib目录下)</li>
+</ul>
+</li>
+</ul>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/openvswitch/" rel="tag"># openvswitch</a>
+          
+            <a href="/tags/原创/" rel="tag"># 原创</a>
+          
+        </div>
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2018/06/01/ovs-code-note-1/" rel="next" title="OpenvSwitch代码阅读笔记（1）-- Freezing Translation">
+                <i class="fa fa-chevron-left"></i> OpenvSwitch代码阅读笔记（1）-- Freezing Translation
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+  
+    <div class="comments" id="comments">
+      
+        <div id="gitment-container"></div>
+      
+    </div>
+
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+            
+              <p class="site-author-name" itemprop="name">xiaohutou</p>
+              <p class="site-description motion-element" itemprop="description">有志 有识 有恒</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">11</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">14</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+
+          
+
+          
+          
+
+          
+          
+
+          
+            
+          
+          
+
+        </div>
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#struct-ofputil-flow-mod详解"><span class="nav-number">2.</span> <span class="nav-text">struct ofputil_flow_mod详解</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#list-node"><span class="nav-number">2.0.1.</span> <span class="nav-text">list_node</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#match"><span class="nav-number">2.0.2.</span> <span class="nav-text">match</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#priority"><span class="nav-number">2.0.3.</span> <span class="nav-text">priority</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#cookie和cookie-mask"><span class="nav-number">2.0.4.</span> <span class="nav-text">cookie和cookie_mask</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#new-cookie和modify-cookie"><span class="nav-number">2.0.5.</span> <span class="nav-text">new_cookie和modify_cookie</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#table-id"><span class="nav-number">2.0.6.</span> <span class="nav-text">table_id</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#command"><span class="nav-number">2.0.7.</span> <span class="nav-text">command</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#idle-timeout和hard-timeout"><span class="nav-number">2.0.8.</span> <span class="nav-text">idle_timeout和hard_timeout</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#buffer-id"><span class="nav-number">2.0.9.</span> <span class="nav-text">buffer_id</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#out-port和out-group"><span class="nav-number">2.0.10.</span> <span class="nav-text">out_port和out_group</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#flags"><span class="nav-number">2.0.11.</span> <span class="nav-text">flags</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#importance"><span class="nav-number">2.0.12.</span> <span class="nav-text">importance</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#ofpacts和ofpacts-len"><span class="nav-number">2.0.13.</span> <span class="nav-text">ofpacts和ofpacts_len</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#ofpacts-tlv-bitmap"><span class="nav-number">2.0.14.</span> <span class="nav-text">ofpacts_tlv_bitmap</span></a></li></ol></li></ol></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; <span itemprop="copyrightYear">2018</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">xiaohutou</span>
+
+  
+
+  
+</div>
+
+
+
+
+  <div class="powered-by">由 <a class="theme-link" target="_blank" href="https://hexo.io">Hexo</a> 强力驱动 v3.7.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 &mdash; <a class="theme-link" target="_blank" href="https://github.com/theme-next/hexo-theme-next">NexT.Gemini</a> v6.2.0</div>
+
+
+
+
+        
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  
+
+  
+  
+    <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=6.2.0"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=6.2.0"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=6.2.0"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=6.2.0"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=6.2.0"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=6.2.0"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=6.2.0"></script>
+
+
+
+  
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+<!-- LOCAL: You can save these files to your site and update links -->
+    
+        
+        <link rel="stylesheet" href="https://aimingoo.github.io/gitmint/style/default.css">
+        <script src="https://aimingoo.github.io/gitmint/dist/gitmint.browser.js"></script>
+    
+<!-- END LOCAL -->
+
+    
+
+    
+      <script type="text/javascript">
+      function renderGitment(){
+        var gitment = new Gitmint({
+            id: window.location.pathname,
+            owner: 'xiaohutou',
+            repo: 'xiaohutou.github.io',
+            
+            lang: "" || navigator.language || navigator.systemLanguage || navigator.userLanguage,
+            
+            oauth: {
+            
+            
+                client_secret: '67f5892dc03fd6d49a5c95713a520d93077da765',
+            
+                client_id: '649abcb8a6b6f2bbc68b'
+            }});
+        gitment.render('gitment-container');
+      }
+
+      
+      renderGitment();
+      
+      </script>
+    
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+  
+
+  
+
+
+  
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>

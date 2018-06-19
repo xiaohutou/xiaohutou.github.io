@@ -282,6 +282,493 @@
   
   
   <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/06/10/ovs-ofputil-flow-mod/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="xiaohutou">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="小虎头 加油">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/06/10/ovs-ofputil-flow-mod/" itemprop="url">
+                  OpenvSwitch结构体ofputil_flow_mod详解
+                </a>
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2018-06-10 21:34:55" itemprop="dateCreated datePublished" datetime="2018-06-10T21:34:55+09:00">2018-06-10</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2018-06-19 18:33:26" itemprop="dateModified" datetime="2018-06-19T18:33:26+09:00">2018-06-19</time>
+              
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><ul>
+<li>ofputil_flow_mod是一个很重要的结构体，ovs在初始化时添加默认流表项以及使用ovs-ofctl操作ovs的流表项时都涉及到该结构体。</li>
+<li>本文涉及的代码是截至到2018年6月1日，ovs主干树的代码。</li>
+</ul>
+<h1 id="struct-ofputil-flow-mod详解"><a href="#struct-ofputil-flow-mod详解" class="headerlink" title="struct ofputil_flow_mod详解"></a>struct ofputil_flow_mod详解</h1><h3 id="list-node"><a href="#list-node" class="headerlink" title="list_node"></a>list_node</h3><ul>
+<li>类型 struct ovs_list  描述双向链表节点的结构体。与linux内核的实现基本一样，为了兼容MSVS，初始化部分有所不同。</li>
+</ul>
+<h3 id="match"><a href="#match" class="headerlink" title="match"></a>match</h3><ul>
+<li><p>类型struct minimatch 采用稀疏编码的方式对struct match压缩。struct minimatch和sttuct match定义如下：</p>
+<figure class="highlight c"><figcaption><span>include/openvswitch/match.h:40 </span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">match</span> &#123;</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">flow</span> <span class="title">flow</span>;</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">flow_wildcards</span> <span class="title">wc</span>;</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">tun_metadata_allocation</span> <span class="title">tun_md</span>;</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+  <figure class="highlight c"><figcaption><span>include/openvswitch/match.h:249</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">minimatch</span> &#123;</span></span><br><span class="line">    <span class="keyword">union</span> &#123;</span><br><span class="line">        <span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line">            <span class="class"><span class="keyword">struct</span> <span class="title">miniflow</span> *<span class="title">flow</span>;</span></span><br><span class="line">            <span class="class"><span class="keyword">struct</span> <span class="title">minimask</span> *<span class="title">mask</span>;</span></span><br><span class="line">        &#125;;</span><br><span class="line">        <span class="class"><span class="keyword">struct</span> <span class="title">miniflow</span> *<span class="title">flows</span>[2];</span></span><br><span class="line">    &#125;;</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">tun_metadata_allocation</span> *<span class="title">tun_md</span>;</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>  struct minimatch由两个struct miniflow和一个struct tun_metadata_allocation组成；它们与struct match中的flow, wc和tun_md一一对应。OVS在只对struct match中的flow和wc字段使用稀疏编码的方式压缩，tun_md保持不变。实际上，minimatch只保存了match结构中的flow和ws字段中的非零部分（单位是8个字节）。tun_md字段保存的数据都与隧道（GRE、Vxlan等）相关，这部分数据保持不变。</p>
+</li>
+<li>ovs-ofctl中从字符串转换为minimatch的处理流程（ofp-flow.c:1474  parse_ofp_str__）：<br> 流程说明以添加“dl_type=0x0800,dl_dst=11:22:33:44:55:66”规则为例<ul>
+<li>1 初始化struct ofputil_flow_mod结构体。</li>
+<li>2 定义局部变量match并初始化（ofp-flow.c:1564 struct match match = MATCH_CATCHALL_INITIALIZER;)</li>
+<li>3 调用ofputil_parse_key_value将字符串拆解成键值对{key，value}，例如示例的字符串被拆解成[{“dl_type”: “0x0800”},{“dl_dst”:”11:22:33:44:55:66}]</li>
+<li>4 根据key，将value添加到match对应的字段中。<ul>
+<li>在ofp_parse_field中，调用mf_parse解析value。mf_parse函数主要是将value转换为对应的数据。例如将MAC地址字符串转换为struct eth_addr。mf_parse在解析数据时，会同时解析数据的掩码。</li>
+<li>数据转换完成后，调用mf_set函数设置match中对应的字段。mf_set调用match_set_*函数操作match中的数据。例如，在设置match的dl_dst字段时，最后调用match_set_dl_dst或match_set_dl_dst_masked.</li>
+</ul>
+</li>
+<li>5 返回步骤3，直到所有的字符串解析完。</li>
+<li>6 调用minimatch_init将match转换为minimatch  </li>
+</ul>
+</li>
+</ul>
+<h3 id="priority"><a href="#priority" class="headerlink" title="priority"></a>priority</h3><ul>
+<li>类型int</li>
+<li><p>OpenFlow协议流表规则的优先级，数值越大优先级越高。实际使用中，网络报文会与多个规则匹配，例如如下两条规则：</p>
+<ul>
+<li>1。“dl_dst=11:22:33:44:55:66, actions=output:x”</li>
+<li>2。“in_port=a, dl_dst=11:22:33:44:55:66, actions=output:y”</li>
+</ul>
+<p>从端口A发送的目标MAC地址为“11:22:33:44:55:66”数据报文，与上面的两条规则都匹配。如果这两条规则的优先级是一样的，则按其加入的先后顺序处理；否则，按优先级来处理。如果规则1的优先级高于2，则2永远都不会被匹配上。</p>
+</li>
+</ul>
+<h3 id="cookie和cookie-mask"><a href="#cookie和cookie-mask" class="headerlink" title="cookie和cookie_mask"></a>cookie和cookie_mask</h3><ul>
+<li>类型ovs_be64</li>
+<li>Cookie，有时也用其复数形式 Cookies，指某些网站为了辨别用户身份、进行 session 跟踪而储存在用户本地终端上的数据（通常经过加密）。cookie字段的作用是身份识别或session跟踪，OpenFlow协议本身支持多个控制器，但只有一个主控制（master）工作，其他的控制器（slave）只有在主控制器失效后，slave控制器才工作。cookie的作用更多的是与session跟踪相关的，例如在某一时段临时添加了一些特殊的处理，删除时可以通过该字段将其全部删除。<br>  cookie字段和cookie_mask字段在添加规则时被忽略，在删除和修改规则时被使用。</li>
+</ul>
+<h3 id="new-cookie和modify-cookie"><a href="#new-cookie和modify-cookie" class="headerlink" title="new_cookie和modify_cookie"></a>new_cookie和modify_cookie</h3><ul>
+<li>new_cookie的类型是ovs_be64， modify_cookie的类型是布尔型</li>
+<li>用于修改或添加cookie。<ul>
+<li>添加流表规则时，该字段的值不能是UINT64_MAX. 可自行定义该值。modify_cookie的值为true。</li>
+<li>在修改流表规则（OFPFC_MODIFY and OFPFC_MODIFY_STRICT）时，包含以下两种情况：<ul>
+<li>1。 如果一个或多个规则匹配，并且“modify_cookie”被设置为true，则cookies被替换为new_cookie，</li>
+<li>2。如果没有匹配的规则，则按照添加规则的方式处理。</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="table-id"><a href="#table-id" class="headerlink" title="table_id"></a>table_id</h3><ul>
+<li>类型uint8_t</li>
+<li>规则被添加的表ID。openflow从1.1版本开始支持多级流表。在ovs-ofctl的命令中如果带有table参数，如：<br>  ovs-ofctl add-flow internal “priority=10,table=2,dl_type=0x08000,dl_dst=11:22:33:44:55:66,actions=output:1”<br>  则通信协议号被设置为OFPUTIL_P_OF10_STD_TID，通信的消息仍然是struct ofp10_flow_mod。表的id号被封装到command字段中。<br>  格式如下:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th style="text-align:center">15—————–8</th>
+<th style="text-align:center">7—————0</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">table_id</td>
+<td style="text-align:center">command</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>相关代码：<ul>
+<li>ofputil_tid_command ： ofp-flow.c:356</li>
+<li>ofm-&gt;command = ofputil_tid_command(fm, protocol);    ofp-flow.c:436和456</li>
+</ul>
+</li>
+</ul>
+<h3 id="command"><a href="#command" class="headerlink" title="command"></a>command</h3><ul>
+<li>类型uint16_t</li>
+<li>操作flow的命令。目前支持的命令如下：<ul>
+<li>OFPFC_ADD 添加<ul>
+<li>OFPFC_MODIFY 修改所有匹配的流表</li>
+<li>OFPFC_MODIFY_STRICT 修改严格匹配的流表</li>
+<li>OFPFC_DELETE 删除所有匹配的流表</li>
+<li>OFPFC_DELETE_STRICT  修改严格匹配的流表</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="idle-timeout和hard-timeout"><a href="#idle-timeout和hard-timeout" class="headerlink" title="idle_timeout和hard_timeout"></a>idle_timeout和hard_timeout</h3><ul>
+<li>类型uint16_t</li>
+<li>idle_timeout和hard_timeout指定规则的有效期，单位秒。其中，idle_timeout指定流表规则失效前在多少秒中内是处于idle状态的，即没有任何报文与其匹配。而hard_timeout则是指流表在多少秒后失效，不管这期间是否有报文与该规则匹配。默认值为0，即永久生效。</li>
+</ul>
+<h3 id="buffer-id"><a href="#buffer-id" class="headerlink" title="buffer_id"></a>buffer_id</h3><ul>
+<li>类型uint32_t</li>
+<li>buffer_id指明被cache的数据报的ID，该字段是datapath设置的。默认值UINT32_MAX。</li>
+</ul>
+<h3 id="out-port和out-group"><a href="#out-port和out-group" class="headerlink" title="out_port和out_group"></a>out_port和out_group</h3><ul>
+<li>out_port的类型是ofp_port_t，out_group的类型为unit32_t</li>
+<li>out_port和out_group被ovs-ofctl的replace-flow命令使用，默认值 OFPP_ANY 。</li>
+</ul>
+<h3 id="flags"><a href="#flags" class="headerlink" title="flags"></a>flags</h3><ul>
+<li>类型enum ofputil_flow_mod_flags</li>
+<li>ovs扩展的功能的标记。默认值为0</li>
+<li>相关代码， ofp-flows.c: 1578-1590和ofp-flow.h:35-65</li>
+</ul>
+<h3 id="importance"><a href="#importance" class="headerlink" title="importance"></a>importance</h3><ul>
+<li>类型uint16_t</li>
+<li>openflow一个表默认支持UINT_MAX个项，当添加表项时，如果此时没有剩余的存储空间则选择牺牲者。该值越高，被作为牺牲者的概率越大。默认值为0。</li>
+<li>相关代码：<ul>
+<li>rule_eviction_priority : ofproto.c:8493    </li>
+</ul>
+</li>
+</ul>
+<h3 id="ofpacts和ofpacts-len"><a href="#ofpacts和ofpacts-len" class="headerlink" title="ofpacts和ofpacts_len"></a>ofpacts和ofpacts_len</h3><ul>
+<li>ofpacts的类型为struct ofpact *； ofpacts_len的类型为size_t</li>
+<li><p>ofpacks封装openflow的action。在ovs_ofctl中解析转换的流程如下（ofp-actions.c:8741 ofpacts_parse__）：</p>
+<ul>
+<li>1。 调用ofputil_parse_key_value将字符串拆解成键值对{key，value}。例如“output:x”的key为“output”，值为x。</li>
+<li>2。 调用ofpact_type_from_name判断key定义的操作，如果是返回真，则调用ofpact_parse在ofpacts设置action及其值。</li>
+<li>3。ofpack_parse(ofp-actions.c:8709)中通过定义宏OFPACT和在ofp-actions.h中定义的宏OFPACTS调用相关函数设置action。例如被添加的操作是output，这里就调用parse_OUTPUT函数。</li>
+<li><p>4。parse_OUTPUT函数中，首先判断output的操作中是否有“port”和“max_len”字符串，如果有，则调用ofpact_put_OUTPUT_TRUNC处理（NXAST_OUTPUT_TRUNC是ovs扩展的操作）；否则，调用ofputil_port_from_string将用字符串表示的端口号转换为ofp_port_t。下面看一下por_map参数是怎么得到的。</p>
+<ul>
+<li>在ofctl_flow_mod调用parse_ofp_flow_mod_str将字符串表示的flow转换为struct minimatch前，首先调用ports_to_accept函数来获得虚拟交换机所有的端口的描述信息，是否获得获取该信息是通过全局变量use_names（默认值-1）来控制的，use_names的值是通过ovs-ofctl工具的参数–names和–no-names改变的。如果use_names不为零，则调用get_port_map从ovs-vswitchd获得端口的描述信息。</li>
+<li>get_port_map与ovs-vswitchd建立通信连接后，调用port_iterator_fetch_features函数读取当前虚拟交换机所有的端口信息。</li>
+<li>port_iterator_fetch_features函数调用ofpraw_alloc生成类型为OFPTYPE_FEATURES_REQUEST的请求。注意调用参数是OFPRAW_OFPT_FEATURES_REQUEST，raw_info_get函数将其转换为OFPTYPE_FEATURES_REQUEST。</li>
+<li>ovs-vswitchd收到请求后，调用handle_features_request将struct bridge结构体中的ofproto字段中的端口信息发送给请求者（ofproto.c:3309）。</li>
+</ul>
+</li>
+<li><p>5。调用ofpact_put_OUTPUT（ofp-actions.h:1168）在ofpacts分配空间存储struct ofpact_output类型的数据。OFPP_CONTROLLER是指openflow的控制器，即将数据发送给openflow控制器。在我们的场景下，ovs不会设置外部的openflow控制器。所以ofpact_output的max_len字段为0.</p>
+</li>
+</ul>
+</li>
+<li>相关代码<ul>
+<li>ofp-port.c:149</li>
+<li>ofp-actions.c:8709</li>
+<li>ofp-actions.h:1168</li>
+<li>ofproto.c:3309</li>
+</ul>
+</li>
+</ul>
+<h3 id="ofpacts-tlv-bitmap"><a href="#ofpacts-tlv-bitmap" class="headerlink" title="ofpacts_tlv_bitmap"></a>ofpacts_tlv_bitmap</h3><ul>
+<li>类型uint64_t</li>
+<li>与特定的操作相关，如NXAST_RAW_CT, NXAST_RAW_MULTIPATH, ONFACT_RAW13_COPY_FIELD等。</li>
+<li>默认值为0.</li>
+<li>相关代码：<ul>
+<li>of-flow.c:316     fm-&gt;ofpacts_tlv_bitmap = 0;</li>
+<li>ofp-actions.inc2(自动生成的文件，在编译根目录的lib目录下)</li>
+</ul>
+</li>
+</ul>
+
+          
+        
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/06/01/ovs-code-note-1/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="xiaohutou">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.gif">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="小虎头 加油">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+                
+                <a class="post-title-link" href="/2018/06/01/ovs-code-note-1/" itemprop="url">
+                  OpenvSwitch代码阅读笔记（1）-- Freezing Translation
+                </a>
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2018-06-01 21:00:10" itemprop="dateCreated datePublished" datetime="2018-06-01T21:00:10+09:00">2018-06-01</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2018-06-19 18:36:10" itemprop="dateModified" datetime="2018-06-19T18:36:10+09:00">2018-06-19</time>
+              
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          
+            <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>最近几个月的工作主要是对Open vSwitch的Windows Server版进行功能扩展。在阅读代码过程中，在ovs-vswitchd处理数据平面的请求时，遇到frozen_state字段，今天在阅读Openflow流表转换的代码时，看到关于冻结转换的注释（ofproto-dpif-xflate.c:273 - 378），特此翻译如下。</p>
+<h1 id="冻结转换-（Freezing-Translation）"><a href="#冻结转换-（Freezing-Translation）" class="headerlink" title="冻结转换 （Freezing Translation）"></a>冻结转换 （Freezing Translation）</h1><p>在转换的过程中，会遇到需要暂停并设置一个检查点的情况，这样，转换操作可以在以后重新开始。设置checkpoint的过程被称为“freezing”，而重启该操作的过程被称为“thawing”。</p>
+<p>freezing的使用场景：</p>
+<ol>
+<li><p>“Recirculation”, 转换操作发现在不执行以完成的转换的情况下，它没有足够的信息完成剩余的转换操作。在这种情况下，转换操作被冻结（freeze）并且相应的数据被赋予一个唯一的“recirculation ID”，该值被保存在用户空间的一个表中（参见ofproto-dpif-rid.h）。同时，添加一个OVS_ACTION_ATTR_RECIRC的动作，该动作的值是“recirculation ID”。当一个数据报触发这个动作后，数据平面使用该ID重新查表。如果，数据平面没有找到对应的记录，数据平面将请求控制平面处理。控制平面从“recirculation table”中查到ID，如果此时相关的信息已知，就重启转换操作。<br>原生的例子是MPLS。MPLS在Openflow中的实现，只有在最后一个MPLS标签后面的协议被剥离后，才能知道数据报封装的具体的协议。就是说，OVS无法跳过MPLS标签直接解析数据帧头。因此，在这种情况下，通过“recirculation”操作解析MPLS封装的数据帧。<br>（OVS同时使用OVS_ACTION_ATTR_RECIRC来实现输出到绑定网卡的哈希操作。OVS预先生成所有在数据平面上输出到绑定网卡上的流表，因此，将数据报发给用户空间做再一次转换这样复杂的流程就不需要了，即，绑定网卡不会按照上面提到的过程来处理。）</p>
+</li>
+<li><p>“Continuation”。A continuation是Openflow控制器干预数据报处理的一种机制。当转换过程中遇到一个带有“pause”标记的“controller”操作，转换就被暂停，被冻结的数据经过序列化后，发送给Openflow的控制器。控制器然后检查或修改被冻结的数据，并最终将数据发送给虚拟交换机，然后虚拟交换机解冻这些数据并继续转换操作。</p>
+</li>
+</ol>
+<p>冻结转换的主要问题时保存状态，因此当转换被解冻时，操作能够继续进行而没有被破坏。尤其是，动作必须按照下面的顺序保存：</p>
+<ul>
+<li>如果冻结转换的原因是需要更多的信息，指明冻结原因的操作。</li>
+<li>任何其他的在当前流表中等待执行的操作。</li>
+<li>如果转换在NXAST_RESUMIT中被冻结，任何其他的操作都在resubmit操作的后面。resubmit操作可能是嵌套的，所以必须返回到控制平面处理。</li>
+<li>Openflow 1.1+中定义的操作集合。</li>
+</ul>
+<p>动作或流表查询所依赖的状态，必须保存，例如：</p>
+<ul>
+<li>元数据字段（输入端口，寄存器，OF1.1+的元数据，… ）</li>
+<li>NXAST_STACK_PUSH和NXAST_STACK_POP操作使用的栈信息</li>
+<li>在控制平面栈的每个级别上，流表的表ID和cookie被转换，因为它们在执行OFPAT_CONTROLLER操作（包括其他的方式）时是可见的。</li>
+</ul>
+<p>通过这些字段，转换控制状态的保存。当一个冻结转换被识别时，转化过程如下：</p>
+<ol>
+<li>设置‘freezing’为true。</li>
+<li>设置‘exit’为true，这样后续的操作就会知道上一个操作从转换过程中推出。</li>
+<li>在‘frozen_actions’中添加OFPACT_UNROLL_XLATE动作，并且为了以后能够很方便的找到当前的操作，frozen_actions.header指向这个动作。这个动作中保存了当前的表ID和cookie，所以在后续的环回的转换中，它们能被恢复过来。</li>
+<li>添加指示环回的动作，以及流表中其他后续的动作到’frozen_actions’中，这样，它们就能被执行当该流表重新被执行转换时。</li>
+<li>返回。</li>
+<li>指示环回的动作也许被嵌套在被重新提交的请求中，该请求还有没有执行的动作。所有这些都表明，当前离开和冻结了动作，并且在‘frozen_actions’中再次添加OFPACT_UNROLL_XLATE动作，以及没有被执行的动作。</li>
+</ol>
+<p>如果因为环回冻结转换，调用者生成一个环回ID，并且保存所有的当前操作的状态。对于所有的环回转换，调用者把它们传递新的转换去执行。这个过程中，产生了一组可以被直接转换的ofpacks，这时，它们的处理就没什么特殊之处了。</p>
+
+          
+        
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+    
+      
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
     <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/05/20/ovs-classifier-note/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -1608,164 +2095,13 @@
 
 
     
-      
-
-  
-
-  
-  
-  
-
-  
-
-  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
-  
-  
-  
-  <div class="post-block">
-    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/04/02/hello-world/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="name" content="xiaohutou">
-      <meta itemprop="description" content="">
-      <meta itemprop="image" content="/images/avatar.gif">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="小虎头 加油">
-    </span>
-
-    
-      <header class="post-header">
-
-        
-        
-          <h1 class="post-title" itemprop="name headline">
-                
-                <a class="post-title-link" href="/2018/04/02/hello-world/" itemprop="url">
-                  Emacs 25 Windows 64bit 中文支持
-                </a>
-              
-            
-          </h1>
-        
-
-        <div class="post-meta">
-          <span class="post-time">
-
-            
-            
-            
-
-            
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              
-                <span class="post-meta-item-text">发表于</span>
-              
-
-              
-                
-              
-
-              <time title="创建时间：2018-04-02 22:01:12" itemprop="dateCreated datePublished" datetime="2018-04-02T22:01:12+09:00">2018-04-02</time>
-            
-
-            
-              
-
-              
-                
-                <span class="post-meta-divider">|</span>
-                
-
-                <span class="post-meta-item-icon">
-                  <i class="fa fa-calendar-check-o"></i>
-                </span>
-                
-                  <span class="post-meta-item-text">更新于</span>
-                
-                <time title="修改时间：2018-04-10 03:23:22" itemprop="dateModified" datetime="2018-04-10T03:23:22+09:00">2018-04-10</time>
-              
-            
-          </span>
-
-          
-
-          
-            
-          
-
-          
-          
-
-          
-
-          
-
-          
-
-        </div>
-      </header>
-    
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-      
-
-      
-        
-          
-            <p>一年多前，从Emacs 24升级到Emacs 25 Windows 64bit版。唯一的问题是，文件中包含非英文字符时，Emacs就异常卡顿。由于不需要在Emacs中处理中文，另外工作环境主要是Ubuntu系统，就置之不理。最近，准备业余时间写一些技术博客。编辑器当然是Emacs 25，非英文字符卡顿的问题就必须解决了。Bing一下，发现该问题是编码不一致导致的。Emacs25默认使用GBK编码，但是我的Emacs的字体是英文字体“Courier New”。将字体设置为中文字体“宋体”或“微软雅黑”后，中文的卡顿消失了。</p>
-<p>安装hexo，开始测试，发现中文乱码。经典的字符编码的问题。hexo默认按UTF8处理非英文字符。将emacs的默认字符集设置为utf8后，发现中文输入法不能工作。继续求助bing，使用<a href="http://tumashu.github.io/pyim/" target="_blank" rel="noopener">pyim</a>处理中文输入。</p>
-<p>最后，贴上emacs的配置文件，开始部署到github上。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">(prefer-coding-system &apos;utf-8)</span><br><span class="line">(set-default-coding-systems &apos;utf-8)</span><br><span class="line">(set-language-environment &apos;utf-8)</span><br><span class="line">(set-selection-coding-system &apos;utf-8)</span><br><span class="line"></span><br><span class="line">(require &apos;pyim)</span><br><span class="line">(require &apos;pyim-basedict) </span><br><span class="line">(pyim-basedict-enable)</span><br><span class="line">(setq pyim-default-scheme &apos;pyim-shuangpin)</span><br><span class="line">(setq default-input-method &quot;pyim&quot;)</span><br><span class="line">(global-set-key [(control space)] &apos;toggle-input-method)</span><br><span class="line"></span><br></pre></td></tr></table></figure>
-
-          
-        
-      
-    </div>
-
-    
-
-    
-    
-    
-
-    
-
-    
-
-    
-
-    <footer class="post-footer">
-      
-
-      
-
-      
-
-      
-      
-        <div class="post-eof"></div>
-      
-    </footer>
-  </div>
-  
-  
-  
-  </article>
-
-
-    
   </section>
 
   
+  <nav class="pagination">
+    <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><a class="extend next" rel="next" href="/page/2/"><i class="fa fa-angle-right" aria-label="下一页"></i></a>
+  </nav>
+
 
 
           </div>
@@ -1806,7 +2142,7 @@
                 
                   <a href="/archives/">
                 
-                    <span class="site-state-item-count">9</span>
+                    <span class="site-state-item-count">11</span>
                     <span class="site-state-item-name">日志</span>
                   </a>
                 </div>
@@ -1849,7 +2185,9 @@
                     
                       
                     
-                    <span class="site-state-item-count">13</span>
+                      
+                    
+                    <span class="site-state-item-count">14</span>
                     <span class="site-state-item-name">标签</span>
                   </a>
                 </div>
@@ -2082,9 +2420,11 @@
       
     
       
-        
+    
       
     
+      
+        
       
     
       
