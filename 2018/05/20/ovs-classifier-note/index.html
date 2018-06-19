@@ -107,7 +107,7 @@
 <meta property="og:site_name" content="小虎头 加油">
 <meta property="og:description" content="本文主要是对openvswitch的lib/classifier.h文件中关于流分类器注释的翻译。 翻译中，意译的地方较多。如有错误，或不准确的地方，欢迎邮件（13581561959@163.com）讨论，谢谢。  什么是流分类器流分类器保存了任意数量的“规则”，这些规则由一组用于匹配字段或子字段的值和规则的优先级组成。每一个openflow表被实例化为一个流分类器。 流分类器主要的设计目标。首">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2018-05-20T15:48:44.132Z">
+<meta property="og:updated_time" content="2018-06-19T09:48:19.201Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="OpenVSwitch流分类器笔记">
 <meta name="twitter:description" content="本文主要是对openvswitch的lib/classifier.h文件中关于流分类器注释的翻译。 翻译中，意译的地方较多。如有错误，或不准确的地方，欢迎邮件（13581561959@163.com）讨论，谢谢。  什么是流分类器流分类器保存了任意数量的“规则”，这些规则由一组用于匹配字段或子字段的值和规则的优先级组成。每一个openflow表被实例化为一个流分类器。 流分类器主要的设计目标。首">
@@ -342,7 +342,7 @@
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2018-05-21 00:48:44" itemprop="dateModified" datetime="2018-05-21T00:48:44+09:00">2018-05-21</time>
+                <time title="修改时间：2018-06-19 18:48:19" itemprop="dateModified" datetime="2018-06-19T18:48:19+09:00">2018-06-19</time>
               
             
           </span>
@@ -390,7 +390,7 @@
 <li>翻译中，意译的地方较多。如有错误，或不准确的地方，欢迎邮件（<a href="mailto:13581561959@163.com" target="_blank" rel="noopener">13581561959@163.com</a>）讨论，谢谢。</li>
 </ol></div>
 <h1 id="什么是流分类器"><a href="#什么是流分类器" class="headerlink" title="什么是流分类器"></a>什么是流分类器</h1><p>流分类器保存了任意数量的“规则”，这些规则由一组用于匹配字段或子字段的值和规则的优先级组成。<span style="color:red"><font size="+1">每一个openflow表被实例化为一个流分类器</font></span>。</p>
-<p>流分类器主要的设计目标。首先，给定一组数据报的报头，尽可能快地查找到与之匹配的优先级最高的规则。接下来的一节主要阐述第二个目标。</p>
+<p>流分类器主要的设计目标。首先，给定一组数据报的报头，尽可能快地查找到与之匹配的优先级最高的规则。接下来的一节主要阐述第二个目标。<br><a id="more"></a></p>
 <h1 id="“Un-wildcarding”"><a href="#“Un-wildcarding”" class="headerlink" title="“Un-wildcarding”"></a>“Un-wildcarding”</h1><p>流分类器的一个主要目标是生成一个通配掩码，作为数据报查找的连带产物，其指明数据报头的哪些位对于分类结果是至关重要的。理论上，在掩码中被置1的位表明，如果在数据报中与之相对应的位被反转，则分类器的结果可能改变。对于掩码中为零的位，则改变数据包头中相对应的位不会改变分类器的结果。因此，被标记为通配的字段在分类中不发挥作用。</p>
 <p>这样的通配掩码对于支持采用通配的方式处理某些字段或子字段的数据平面非常有用。例如，如果为一个TCP数据报查找flow时不需要关心TCP源或目地端口，交换机的控制平面在数据平面上插入一个匹配任意端口（tcp协议的port）的流，这样，数据平面就可以自己处理包含其他TCP原和目标端口的数据报，而不需要ovs-vswitchd来辅助处理。对于Open vSwitch一类的软件交换机而言，这是非常有帮助的，当然，对于基于ASIC的交换机而言，一样能获得很好的效果。</p>
 <h1 id="通配掩码的属性"><a href="#通配掩码的属性" class="headerlink" title="通配掩码的属性"></a>通配掩码的属性</h1><ul>
